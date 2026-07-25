@@ -9,6 +9,7 @@
   },
   "bin": {
     "capability-price": "./bin/capability-price.mjs",
+    "capability-reservation-quote": "./bin/capability-reservation-quote.mjs",
     "serve-capability-pricing": "./bin/server.mjs"
   },
   "scripts": {

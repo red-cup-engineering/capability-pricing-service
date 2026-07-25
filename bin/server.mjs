@@ -3,7 +3,10 @@ import { createServer } from "node:http";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { rankExpectedResolutionPrices } from "../src/pricing.mjs";
+import {
+  quoteReservationPrice,
+  rankExpectedResolutionPrices,
+} from "../src/pricing.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const observationsPath = process.env.PRICE_OBSERVATIONS_PATH ?? resolve(root, "data/observations.jsonl");
@@ -42,6 +45,10 @@ createServer(async (request, response) => {
       const demand = await json(request);
       const history = demand.observations ?? await observations();
       send(response, 200, { ok: true, result: rankExpectedResolutionPrices({ ...demand, observations: history }) });
+      return;
+    }
+    if (request.method === "POST" && request.url === "/quote") {
+      send(response, 200, { ok: true, result: quoteReservationPrice(await json(request)) });
       return;
     }
     if (request.method === "POST" && request.url === "/observe") {
