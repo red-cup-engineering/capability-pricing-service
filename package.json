@@ -1,0 +1,16 @@
+{
+  "name": "@harmonious-union/expected-resolution-price-service",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harmonious-union/expected-resolution-price-service.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
