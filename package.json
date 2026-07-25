@@ -1,13 +1,31 @@
 {
-  "name": "@harmonious-union/expected-resolution-price-service",
+  "name": "@red-cup-engineering/capability-pricing-service",
   "version": "0.1.0",
   "private": false,
   "type": "module",
   "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
+  "exports": {
+    ".": "./src/pricing.mjs"
+  },
+  "bin": {
+    "capability-price": "./bin/capability-price.mjs",
+    "serve-capability-pricing": "./bin/server.mjs"
+  },
+  "scripts": {
+    "start": "node bin/server.mjs",
+    "test": "node --test"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/harmonious-union/expected-resolution-price-service.git"
+    "url": "git+https://github.com/red-cup-engineering/capability-pricing-service.git"
   },
   "publishConfig": {
     "access": "public",
