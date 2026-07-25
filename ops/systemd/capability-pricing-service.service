@@ -1,0 +1,19 @@
+[Unit]
+Description=Red Cup capability pricing service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/capability-services-section/services/capability-pricing-service
+Environment=HOST=127.0.0.1
+Environment=PORT=19960
+Environment=PRICE_OBSERVATIONS_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/capability-services-section/services/capability-pricing-service/data/observations.jsonl
+ExecStart=/home/emsenn/.config/nvm/versions/node/v24.13.1/bin/node bin/server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
