@@ -31,5 +31,23 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "x-semiotic-voxel": {
+    "profile": "org.harmonious-union.semiotic-voxel.v1",
+    "owner": "red-cup-engineering",
+    "kind": "capability-cell",
+    "actor": "urn:ame:capability-pricing-service",
+    "operations": [
+      "capability-pricing-service"
+    ],
+    "capabilities": [
+      {
+        "capability": "capability-pricing-service",
+        "faces": [
+          "capability-pricing-service"
+        ]
+      }
+    ],
+    "package": "@red-cup-engineering/capability-pricing-service"
   }
 }
