@@ -34,21 +34,52 @@ test("ranks by expected cost of a verified result, not sticker price", () => {
     ]
   });
   assert.deepEqual(result.ranked.map(({ provider }) => provider), ["dearer-reliable", "cheap-unreliable"]);
-  assert.equal(result.ranked[0].successProbability, 4 / 6);
-  assert.equal(result.ranked[1].successProbability, 2 / 6);
-  assert.equal(result.ranked[0].expectedResolutionAmount, 45);
-  assert.equal(result.ranked[1].expectedResolutionAmount, 60);
+  assert.deepEqual(result.ranked[0].successProbability, q(3, 4));
+  assert.deepEqual(result.ranked[1].successProbability, q(1, 4));
+  assert.deepEqual(result.ranked[0].expectedResolutionAmountLowerBound, q(40));
+  assert.deepEqual(result.ranked[1].expectedResolutionAmountLowerBound, q(80));
 });
 
-test("unknown history is explicit and uses a declared prior rather than zero", () => {
+test("unknown history remains an interval instead of receiving a fabricated prior", () => {
   const result = rankExpectedResolutionPrices({
     taskClass: "classification",
     offers: [{ provider: "new-provider", consideration: { ...credit, amount: 12 } }],
     observations: [],
   });
   assert.equal(result.ranked[0].evidence, "unknown-history");
-  assert.equal(result.ranked[0].successProbability, 0.5);
-  assert.equal(result.ranked[0].expectedResolutionAmount, 24);
+  assert.equal(result.ranked[0].successProbability, null);
+  assert.equal(result.ranked[0].expectedResolutionAmountLowerBound, null);
+  assert.deepEqual(result.ranked[0].unknownCosts, ["dispatch", "verification", "scarcity", "latencyShadow"]);
+});
+
+test("an untried provider is explored before a provider with observed zero yield", () => {
+  const result = rankExpectedResolutionPrices({
+    taskClass: "acceptance-artifact",
+    offers: [
+      { provider: "observed-zero", consideration: { ...credit, amount: 1 } },
+      { provider: "untried", consideration: { ...credit, amount: 100 } },
+    ],
+    observations: [{ provider: "observed-zero", taskClass: "acceptance-artifact", outcome: "refused" }],
+  });
+  assert.deepEqual(result.ranked.map(({ provider }) => provider), ["untried", "observed-zero"]);
+  assert.deepEqual(result.ranked[1].successProbability, q(0));
+});
+
+test("among zero-yield providers the least obstructed route is explored first", () => {
+  const observations = [
+    ...Array.from({ length: 5 }, () => ({ provider: "repeatedly-refused", taskClass: "acceptance-artifact", outcome: "refused" })),
+    ...Array.from({ length: 2 }, () => ({ provider: "less-refused", taskClass: "acceptance-artifact", outcome: "refused" })),
+  ];
+  const result = rankExpectedResolutionPrices({
+    taskClass: "acceptance-artifact",
+    offers: [
+      { provider: "repeatedly-refused", consideration: { ...credit, amount: 1 } },
+      { provider: "less-refused", consideration: { ...credit, amount: 100 } },
+    ],
+    observations,
+  });
+  assert.deepEqual(result.ranked.map(({ provider }) => provider), ["less-refused", "repeatedly-refused"]);
+  assert.deepEqual(result.ranked.map(({ observations: history }) => history.total), [2, 5]);
 });
 
 test("refuses cross-denomination ranking", () => {
@@ -72,9 +103,9 @@ test("adds explicit same-denomination dispatch, verification, scarcity, and late
     }],
     observations: [{ provider: "provider", taskClass: "classification", outcome: "verified" }],
   });
-  assert.equal(result.ranked[0].directAmount, 20);
-  assert.equal(result.ranked[0].successProbability, 2 / 3);
-  assert.equal(result.ranked[0].expectedResolutionAmount, 30);
+  assert.deepEqual(result.ranked[0].directAmountLowerBound, q(20));
+  assert.deepEqual(result.ranked[0].successProbability, q(1));
+  assert.deepEqual(result.ranked[0].expectedResolutionAmountLowerBound, q(20));
 });
 
 test("rejects absent, zero, negative, or non-finite quoted amounts", () => {
@@ -83,7 +114,7 @@ test("rejects absent, zero, negative, or non-finite quoted amounts", () => {
       taskClass: "classification",
       offers: [{ provider: "bad", consideration: { ...credit, amount } }],
       observations: [],
-    }), /positive finite/);
+    }), /exact fraction|positive/u);
   }
 });
 

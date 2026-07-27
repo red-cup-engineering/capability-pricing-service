@@ -1,4 +1,54 @@
-export function rankExpectedResolutionPrices({ taskClass, offers, observations }) { const assetDenom = (o) => `${o.kind}:${o.asset}:${o.unit}`; const firstDenom = offers.length > 0 ? assetDenom(offers[0].consideration) : null; for (const offer of offers) { if (assetDenom(offer.consideration) !== firstDenom) throw new Error("cross-denomination comparison"); if (typeof offer.consideration.amount !== "number" || !Number.isFinite(offer.consideration.amount) || offer.consideration.amount <= 0) throw new Error("positive finite amount required"); } const ranked = offers.map(offer => { const obs = observations.filter(o => o.provider === offer.provider && o.taskClass === taskClass); const total = obs.length; const verified = obs.filter(o => o.outcome === "verified").length; const successProbability = total === 0 ? 0.5 : (verified + 1) / (total + 2); const evidence = total === 0 ? "unknown-history" : "observed"; const dispatch = offer.additionalCosts?.dispatch || 0; const verification = offer.additionalCosts?.verification || 0; const scarcity = offer.additionalCosts?.scarcity || 0; const latencyShadow = offer.additionalCosts?.latencyShadow || 0; const directAmount = offer.consideration.amount + dispatch + verification + scarcity + latencyShadow; const expectedResolutionAmount = directAmount / successProbability; return { provider: offer.provider, successProbability, evidence, directAmount, expectedResolutionAmount }; }); ranked.sort((a, b) => { if (a.expectedResolutionAmount !== b.expectedResolutionAmount) return a.expectedResolutionAmount - b.expectedResolutionAmount; return a.provider.localeCompare(b.provider); }); return { ranked }; }
+export function rankExpectedResolutionPrices({ taskClass, offers, observations }) {
+  if (!Array.isArray(offers) || offers.length === 0) return { ranked: [] };
+  if (!Array.isArray(observations)) throw new Error("observations must be an explicit sequence");
+  const firstDenomination = denominationKey(offers[0].consideration);
+  const costDimensions = ["dispatch", "verification", "scarcity", "latencyShadow"];
+  const ranked = offers.map((offer, marketOrdinal) => {
+    if (denominationKey(offer.consideration) !== firstDenomination) throw new Error("cross-denomination comparison");
+    const quoted = fraction(offer.consideration.amount, "consideration amount");
+    const knownCosts = [], unknownCosts = [];
+    let directLowerBound = quoted;
+    for (const dimension of costDimensions) {
+      if (offer.additionalCosts?.[dimension] == null) { unknownCosts.push(dimension); continue; }
+      const amount = fraction(offer.additionalCosts[dimension], `${dimension} cost`, { allowZero: true });
+      knownCosts.push({ dimension, amount: fractionCarrier(amount) });
+      directLowerBound = addFractions(directLowerBound, amount);
+    }
+    const history = observations.filter((observation) => observation.provider === offer.provider && observation.taskClass === taskClass);
+    const verified = history.filter((observation) => observation.outcome === "verified").length;
+    const probability = history.length === 0 ? null : fraction({ numerator: String(verified), denominator: String(history.length) }, "observed delivery frequency", { allowZero: true });
+    const expectedLowerBound = probability?.numerator > 0n ? divideFractions(directLowerBound, probability) : null;
+    return {
+      provider: offer.provider,
+      evidence: history.length === 0 ? "unknown-history" : "observed-frequency",
+      observations: { verified, total: history.length },
+      successProbability: probability ? fractionCarrier(probability) : null,
+      directAmountLowerBound: fractionCarrier(directLowerBound),
+      expectedResolutionAmountLowerBound: expectedLowerBound ? fractionCarrier(expectedLowerBound) : null,
+      unknownCosts,
+      knownAdditionalCosts: knownCosts,
+      comparison: history.length === 0 || unknownCosts.length > 0 ? "partial-order-with-unknowns" : probability.numerator === 0n ? "observed-zero-yield" : "exact-observed-ratio",
+      marketOrdinal,
+      exactExpectedLowerBound: expectedLowerBound,
+    };
+  });
+  ranked.sort((left, right) => {
+    if (left.exactExpectedLowerBound && right.exactExpectedLowerBound) {
+      const comparison = left.exactExpectedLowerBound.numerator * right.exactExpectedLowerBound.denominator
+        - right.exactExpectedLowerBound.numerator * left.exactExpectedLowerBound.denominator;
+      if (comparison !== 0n) return comparison < 0n ? -1 : 1;
+    } else if (left.exactExpectedLowerBound) return -1;
+    else if (right.exactExpectedLowerBound) return 1;
+    if (left.evidence === "unknown-history" && right.successProbability?.numerator === "0") return -1;
+    if (right.evidence === "unknown-history" && left.successProbability?.numerator === "0") return 1;
+    if (left.successProbability?.numerator === "0" && right.successProbability?.numerator === "0"
+        && left.observations.total !== right.observations.total) {
+      return left.observations.total - right.observations.total;
+    }
+    return left.marketOrdinal - right.marketOrdinal;
+  });
+  return { ranked: ranked.map(({ exactExpectedLowerBound: _exact, marketOrdinal: _ordinal, ...entry }) => entry) };
+}
 
 function positive(value, label) {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
@@ -23,6 +73,7 @@ function greatestCommonDivisor(left, right) {
 }
 
 function fraction(value, label, { allowZero = false } = {}) {
+  if (Number.isSafeInteger(value)) value = { numerator: String(value), denominator: "1" };
   if (typeof value?.numerator !== "string" || !/^-?[0-9]+$/u.test(value.numerator)
       || typeof value?.denominator !== "string" || !/^[1-9][0-9]*$/u.test(value.denominator)) {
     throw new Error(`${label} must be an exact fraction with decimal-integer numerator and positive denominator strings`);

@@ -10,7 +10,9 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const observationsPath = process.env.PRICE_OBSERVATIONS_PATH ?? resolve(root, "data/observations.jsonl");
-const host = process.env.HOST ?? "127.0.0.1";
+// Container schedulers route to the workload interface. Local installations
+// that require loopback confinement declare HOST=127.0.0.1 explicitly.
+const host = process.env.HOST ?? "0.0.0.0";
 const port = Number(process.env.PORT ?? 19860);
 
 async function json(request) {
