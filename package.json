@@ -8,16 +8,16 @@
     ".": "./src/pricing.mjs"
   },
   "bin": {
-    "capability-price": "./bin/capability-price.mjs",
-    "capability-reservation-quote": "./bin/capability-reservation-quote.mjs",
-    "serve-capability-pricing": "./bin/server.mjs"
+    "capability-price": "./scripts/capability-price.mjs",
+    "capability-reservation-quote": "./scripts/capability-reservation-quote.mjs",
+    "serve-capability-pricing": "./scripts/server.mjs"
   },
   "scripts": {
-    "start": "node bin/server.mjs",
+    "start": "node scripts/server.mjs",
     "test": "node --test"
   },
   "files": [
-    "bin",
+    "scripts",
     "src"
   ],
   "engines": {
