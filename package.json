@@ -1,0 +1,38 @@
+{
+  "name": "@red-cup-engineering/capability-pricing-service",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
+  "exports": {
+    ".": "./src/pricing.mjs"
+  },
+  "bin": {
+    "capability-price": "./scripts/capability-price.mjs",
+    "capability-reservation-quote": "./scripts/capability-reservation-quote.mjs",
+    "serve-capability-pricing": "./scripts/server.mjs"
+  },
+  "scripts": {
+    "start": "node scripts/server.mjs",
+    "test": "node --test"
+  },
+  "files": [
+    "scripts",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/red-cup-engineering/capability-pricing-service.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@red-cup-engineering/http-services-section": "workspace:*"
+  }
+}

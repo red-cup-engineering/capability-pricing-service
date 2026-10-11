@@ -1,0 +1,4 @@
+node_modules/
+*.tgz
+data/logs/
+data/records/evm/
