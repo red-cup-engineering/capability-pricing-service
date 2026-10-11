@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
   "exports": {
-    ".": "./src/pricing.mjs"
+    ".": "./src/pricing.mjs",
+    "./observation-journal": "./src/observation-journal.mjs"
   },
   "bin": {
     "capability-price": "./scripts/capability-price.mjs",
@@ -33,6 +34,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@red-cup-engineering/http-services-section": "workspace:*"
+    "@red-cup-engineering/http-services-section": "workspace:*",
+    "@red-cup-engineering/semiotic-eavt-services-section": "workspace:*"
   }
 }

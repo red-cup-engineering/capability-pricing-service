@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { createHttpServer } from "@red-cup-engineering/http-services-section/node-server";
 
-import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   quoteReservationPrice,
   rankExpectedResolutionPrices,
 } from "../src/pricing.mjs";
+import { openObservationJournal } from "../src/observation-journal.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const observationsPath = process.env.PRICE_OBSERVATIONS_PATH ?? resolve(root, "data/observations.jsonl");
@@ -22,15 +22,10 @@ async function json(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-async function observations() {
-  try {
-    const text = await readFile(observationsPath, "utf8");
-    return text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
-  } catch (error) {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  }
-}
+// Observations are kept in the one log, a journal beside PRICE_OBSERVATIONS_PATH; a JSONL file an
+// earlier release left there is admitted once.
+const journal = openObservationJournal(observationsPath);
+const observations = async () => journal.observations();
 
 function send(response, status, value) {
   const body = `${JSON.stringify(value)}\n`;
@@ -61,8 +56,7 @@ createHttpServer({ handle: async (request, response) => {
         return;
       }
       const record = { ...observation, observedAt: observation.observedAt ?? new Date().toISOString() };
-      await mkdir(dirname(observationsPath), { recursive: true });
-      await appendFile(observationsPath, `${JSON.stringify(record)}\n`, { encoding: "utf8", mode: 0o600 });
+      journal.append(record);
       send(response, 201, { ok: true, observation: record });
       return;
     }
