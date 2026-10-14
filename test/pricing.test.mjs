@@ -189,3 +189,28 @@ test("rounds upward to the explicitly selected settlement quantum", () => {
   assert.deepEqual(result.unroundedAmount, q(1, 3));
   assert.deepEqual(result.consideration.amount, q(2, 5));
 });
+
+test("pending observations do not count as refused deliveries", () => {
+  const { ranked } = rankExpectedResolutionPrices({
+    taskClass: "cloud-compute",
+    offers: [{ provider: "p", consideration: { ...credit, amount: 10 } }],
+    observations: [
+      { provider: "p", taskClass: "cloud-compute", outcome: "verified" },
+      { provider: "p", taskClass: "cloud-compute", outcome: "pending" },
+      { provider: "p", taskClass: "cloud-compute", outcome: "unknown" },
+    ],
+  });
+  assert.deepEqual(ranked[0].successProbability, q(1));
+  assert.equal(ranked[0].observations.total, 1);
+});
+
+test("pending-only provider has unknown delivery history", () => {
+  const { ranked } = rankExpectedResolutionPrices({
+    taskClass: "cloud-compute",
+    offers: [{ provider: "p", consideration: { ...credit, amount: 10 } }],
+    observations: [{ provider: "p", taskClass: "cloud-compute", outcome: "pending" }],
+  });
+  assert.equal(ranked[0].evidence, "unknown-history");
+  assert.equal(ranked[0].successProbability, null);
+  assert.equal(ranked[0].observations.total, 0);
+});
