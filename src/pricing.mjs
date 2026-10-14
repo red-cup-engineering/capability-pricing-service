@@ -14,7 +14,8 @@ export function rankExpectedResolutionPrices({ taskClass, offers, observations }
       knownCosts.push({ dimension, amount: fractionCarrier(amount) });
       directLowerBound = addFractions(directLowerBound, amount);
     }
-    const history = observations.filter((observation) => observation.provider === offer.provider && observation.taskClass === taskClass);
+    const allHistory = observations.filter((observation) => observation?.provider === offer.provider && observation?.taskClass === taskClass);
+    const history = allHistory.filter((observation) => observation.outcome === "verified" || observation.outcome === "refused");
     const verified = history.filter((observation) => observation.outcome === "verified").length;
     const probability = history.length === 0 ? null : fraction({ numerator: String(verified), denominator: String(history.length) }, "observed delivery frequency", { allowZero: true });
     const expectedLowerBound = probability?.numerator > 0n ? divideFractions(directLowerBound, probability) : null;
