@@ -1,6 +1,6 @@
 {
   "name": "@red-cup-engineering/capability-pricing-service",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "type": "module",
   "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
@@ -34,7 +34,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@red-cup-engineering/http-services-section": "workspace:*",
-    "@red-cup-engineering/semiotic-eavt-services-section": "workspace:*"
+    "@red-cup-engineering/http-services-section": "0.6.1",
+    "@red-cup-engineering/semiotic-eavt-services-section": "0.1.0"
   }
 }
