@@ -21,7 +21,7 @@ export function authorizeObservationWriter({authorization, secret, writer} = {})
       typeof writer !== "string" || !writer.trim()) {
     return refusal(503, "observation-writer-not-configured");
   }
-  if (typeof authorization !== "string" || !/^Bearer [^\\s]+$/u.test(authorization) ||
+  if (typeof authorization !== "string" || !/^Bearer [^\s]+$/u.test(authorization) ||
       authorization.length > 2048) {
     return refusal(401, "observation-writer-unauthorized");
   }
@@ -52,7 +52,7 @@ export function admitObservationClaim(input, {writer, observedAt} = {}) {
     throw new TypeError("outcome must be verified or refused");
   }
   if (provider === reporter) throw new TypeError("provider cannot be its own outcome writer");
-  if (!/^(?:https:\/\/[^\\s]+|ni:\/\/\/sha-256;[A-Za-z0-9_-]{43}|urn:[^\\s]+)$/u.test(evidenceRef)) {
+  if (!/^(?:https:\/\/[^\s]+|ni:\/\/\/sha-256;[A-Za-z0-9_-]{43}|urn:[^\s]+)$/u.test(evidenceRef)) {
     throw new TypeError("evidenceRef must identify an external HTTPS, NI or URN resource");
   }
   return Object.freeze({
