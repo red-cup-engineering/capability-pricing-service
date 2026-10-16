@@ -38,3 +38,13 @@ test("a quote cannot manufacture a witnessed economic event",()=>{
  assert.equal("att" in admitted,false);
  assert.match(admitted.note,/not WIT\/ACK\/ATT or settlement/);
 });
+
+test("consumed protected reserve must fail closed even for zero-cost admission",()=>{
+ const existing=[{id:"old",audience:"hai-qing",actor:"other",purpose:"needed",attentionMillis:350}];
+ assert.throws(()=>admit({request:{...request,attentionMillis:0},budget,reservations:existing}),/protected reserve/);
+ assert.throws(()=>admit({request,budget:{...budget,capacityMillis:950},reservations:[{...existing[0],attentionMillis:251}]}),/protected reserve/);
+ const boundary=admit({request:{...request,attentionMillis:0},budget,reservations:[{...existing[0],attentionMillis:300}]});
+ assert.equal(boundary.status,"admissible");
+ assert.equal(boundary.remainingMillis,0);
+});
+
