@@ -50,6 +50,10 @@ export function assessAttentionAdmission({ request, budget, reservations = [] })
     if (id === requestId) previous = row;
   }
   if (committed > capacity) throw new Error("existing reservations exceed capacity");
+  // A reduced capacity or increased reserve cannot grandfather an unsafe new quote,
+  // including a zero-cost quote; report inconsistent policy state to the caller.
+  if (committed > capacity - protectedReserve)
+    throw new Error("existing reservations consume protected reserve");
   const available = capacity - committed - protectedReserve;
   const basis = {audience, actor, purpose, requestId, attentionMillis:cost};
   if (previous) {
