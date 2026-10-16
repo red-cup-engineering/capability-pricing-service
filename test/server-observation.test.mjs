@@ -44,8 +44,11 @@ async function withServer({secret = "", writer = "", history = ""} = {}, run) {
     });
     await run({url:"http://127.0.0.1:" + port, path});
   } finally {
-    child.kill();
-    await once(child, "exit").catch(() => {});
+    if (child.exitCode === null && child.signalCode === null) {
+      const stopped = once(child, "exit").catch(() => {});
+      child.kill();
+      await stopped;
+    }
     await rm(dir, {recursive:true,force:true});
   }
 }
