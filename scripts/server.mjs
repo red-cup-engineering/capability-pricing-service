@@ -38,8 +38,16 @@ async function observations() {
     const rows = text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
     if (rows.some(row => row?.kind !== "CapabilityPricingOutcomeClaim.v1" ||
         row.assurance !== "authenticated-writer-claim-not-independent-ACK-or-ATT" ||
-        typeof row.observationId !== "string" || typeof row.evidenceRef !== "string")) {
+        typeof row.observationId !== "string" || !row.observationId ||
+        typeof row.evidenceRef !== "string" || !row.evidenceRef ||
+        typeof row.provider !== "string" || !row.provider ||
+        typeof row.taskClass !== "string" || !row.taskClass ||
+        typeof row.observedBy !== "string" || !row.observedBy ||
+        !["verified", "refused"].includes(row.outcome))) {
       throw new Error("stored outcome history is not in the authenticated-claim format");
+    }
+    if (new Set(rows.map(row => row.observationId)).size !== rows.length) {
+      throw new Error("stored outcome history contains duplicate observation identities");
     }
     return rows;
   } catch (error) {
