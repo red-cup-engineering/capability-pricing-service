@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
   "exports": {
-    ".": "./src/pricing.mjs"
+    ".": "./src/pricing.mjs",
+    "./attention-admission": "./src/attention-admission.mjs"
   },
   "bin": {
     "capability-price": "./scripts/capability-price.mjs",
