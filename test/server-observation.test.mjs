@@ -111,3 +111,31 @@ test("legacy unreceipted history cannot masquerade as the authoritative sample",
     assert.match((await response.json()).refusal.message,/authenticated-claim format/);
   });
 });
+
+test("concurrent replays consume a single persisted outcome rather than multiplying confidence", async () => {
+  const secret="c".repeat(64);
+  await withServer({secret,writer:"office:receiving"},async ({url,path}) => {
+    const header={authorization:"Bearer " + secret};
+    const results=await Promise.all(Array.from({length:18},()=>post(url,"/observe",observation,header)));
+    assert.equal(results.filter(r=>r.status===201).length,1);
+    assert.equal(results.filter(r=>r.status===200).length,17);
+    assert.equal((await readFile(path,"utf8")).trim().split("\n").length,1);
+    const result=await (await post(url,"/rank",rank)).json();
+    assert.deepEqual(result.result.ranked[0].observations,{verified:1,total:1});
+  });
+});
+
+test("an already duplicated persisted observation is refused, never counted twice", async () => {
+  const record={
+    kind:"CapabilityPricingOutcomeClaim.v1",observationId:"duplicated:1",
+    provider:"provider:p",taskClass:"audit",outcome:"verified",evidenceRef:source,
+    observedBy:"office:receiving",observedAt:"2026-10-15T22:00:00Z",
+    assurance:"authenticated-writer-claim-not-independent-ACK-or-ATT",
+  };
+  await withServer({history:JSON.stringify(record)+"\n"+JSON.stringify(record)+"\n"},
+    async ({url}) => {
+      const response=await post(url,"/rank",rank);
+      assert.equal(response.status,400);
+      assert.match((await response.json()).refusal.message,/duplicate observation identities/);
+    });
+});
