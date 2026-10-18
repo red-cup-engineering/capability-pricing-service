@@ -1,13 +1,14 @@
 {
   "name": "@red-cup-engineering/capability-pricing-service",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "type": "module",
   "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
   "exports": {
     ".": "./src/pricing.mjs",
     "./attention-admission": "./src/attention-admission.mjs",
-    "./rewarded-attention": "./src/rewarded-attention.mjs"
+    "./rewarded-attention": "./src/rewarded-attention.mjs",
+    "./prefunded-lightning-inventory": "./src/prefunded-lightning-inventory.mjs"
   },
   "bin": {
     "capability-price": "./scripts/capability-price.mjs",
