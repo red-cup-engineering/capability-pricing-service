@@ -117,3 +117,59 @@ At these entirely invented rates, the upper bound is **30 sats** in possible rew
 **Required independent facts:** actual partner-approved rewarded traffic and payout terms; attributed signed conversion; reversals; conservative reserves; wallet and Lightning fees; reconciled **cleared unencumbered cash**; observed dated BTC/USD price; spend authority; retention and conservative after-cost contribution LTV versus independently measured acquisition cost. If a cost or cash input is unknown, the quote refuses instead of silently substituting zero. A missing BTC price produces only a USD envelope, not a sat promise. Sub-sat reward value is floored to zero.
 
 **Stage separation:** advertiser quote → eligible conversion → provider receivable → collected cash; player reward terms → verified/guaranteed obligation → wallet payout; acquisition allocation → authorized external campaign spend → observed new-user cohort. These are distinct economic resources. The calculator neither supplies atomic cash reservations nor authenticates advertiser payouts, so no public consumer may interpret its scenario as a real earning, revenue settlement, funded acquisition campaign or verified profit.
+
+## Pre-funded Lightning reward inventory and regtest
+
+The 561 Group can sell real-sat virtual miner terms **only up to pre-funded payout capacity**. Unlike an app-only demonstration, each real paid day/week/year contract and any *qualifying* rewarded ad must reserve its **maximum possible** sat liability, including all permitted multiplier effects and a conservative outgoing Lightning fee allowance, *before* promising rewards. Claiming an 8-hour free plan is a separate new obligation at each claim; recurring subscriptions must renew only after a new, fully covered reservation. Never count present purchase receipts, advertising receivables, future new players, or unconverted x402 USDC as currently spendable BTC.
+
+Pure reusable quote provider: `./prefunded-lightning-inventory`, exporting `assessPrefundedLightningSale` and `projectCoreLightningOutbound`. The former checks **exact millisatoshi integer strings** against a source-identified Lightning snapshot, complete unsettled booking entries, obligations on the same wallet from other business functions, and liquidity safety reserve. Wallet/book identities and regtest/signet/mainnet network must match. Stale snapshots, missing obligations/fees, duplicate identities, unknown statuses, disconnected channels, zero spendable outgoing liquidity and mismatched wallet IDs refuse or return unavailable. It does not establish ownership or authority of the caller-supplied snapshot.
+
+The projection reads Core Lightning `listpeerchannels` output; only connected `CHANNELD_NORMAL` channels contribute `spendable_msat`. The upstream estimate can still overstate actual payment routing, so conservative safety reserves and receipt/reconciliation are mandatory. It **does not** count inbound capacity, onchain UTXOs, disconnected peers, pending receipt from ad networks, or unconfirmed purchase proceeds as outgoing payment inventory. Reference: https://docs.corelightning.org/reference/listpeerchannels .
+
+### Runnable development path: Lightning regtest
+
+Use the [Core Lightning local regtest instructions](https://docs.corelightning.org/docs/developers-guide), including `contrib/startup_regtest.sh`, `start_ln 3` and `fund_nodes`, or [Polar](https://docs.lightning.engineering/lightning-network-tools/taproot-assets/polar) for locally connected regtest nodes. Both use valueless simulated BTC. Use separate payer/recipient CLN nodes to rehearse channel movement, routing fees, failed invoices and confirmation; the pure quote alone does **not** pay anyone.
+
+An authenticated operator on the machine running the **regtest** Core Lightning daemon can run this strictly read-only CLI:
+
+```sh
+node scripts/quote-regtest-lightning-inventory.mjs \
+  --ledger /private/authoritative/book.json \
+  --sale /private/authorized/one-sale-intent.json \
+  --wallet-id payout-regtest-node \
+  --reserve-msat 1000000
+```
+
+The operator's book must exist and include **all** obligations sharing the node. Its `revision` is the expected atomic journal revision for any later booking. For example, a deliberately illustrative *not-authoritative* book is:
+
+```json
+{
+  "walletId": "payout-regtest-node",
+  "revision": "regtest:example-1",
+  "otherCommittedMsat": "0",
+  "claims": []
+}
+```
+
+And an illustrative *unexecuted* fixed-maximum sale request:
+
+```json
+{
+  "walletId": "payout-regtest-node",
+  "actor": "example-customer",
+  "intentId": "illustrative-one",
+  "termsRef": "urn:561:yabcm:example-fixed-8-hour-bounded-boost-ceiling",
+  "maxRewardSats": "2000",
+  "maxRoutingFeeSats": "100"
+}
+```
+
+**The output is a QUOTE, not a booking or user authorization.** Its field `capacityFits` explicitly does **not** authorize a real sale. No live wallet, account balance, external CLN payment, permission, or mainnet release was received in this source change. Test suite includes exact-price and replay/refusal cases and a synthetic executable `lightning-cli` stub; testing a stub is not testing a real LN channel.
+
+### Required transaction and payout receiver before live purchases
+
+One ledger owner/transaction boundary must atomically check current ledger revision, independently received spendable LN funds, and *all* existing max lifetime obligations, then commit **one idempotent reservation**. Only after that can a separately authorized product accept a charge; if charging fails, release only upon an independently known cancelled/unpaid/fully refunded status. Hold unresolved outcomes. When credits accrue, move already reserved value from future-contract to earned-withdrawable classification without double counting or expanding the total obligation. On payout, keep the claim in-flight until the wallet confirms finality and the ledger has reconciled the spend plus routing fee; never free the reserve on a client click or sent-only state. Fund shortfalls suspend new offers **and** require repairing/covering outstanding promises; merely hiding the buy button cannot satisfy existing customers. Do not modify recurring scheduled tasks for this.
+
+**Customer-facing design:** `sold-out` or `payout capacity unavailable` when free reserves cannot cover the entire promised contract, while the existing *unpaid* demo and house promotions may remain playable. Discount promotions and loyalty boosts must have an enforceable maximum per purchase; the market can never promise an unbounded future multiplier. No balances derived from tiny 14-decimal BTC animations count as withdrawable sats until the actual ledger and Lightning payout unit are matched.
+
+Original consumer: [Causeway Public Services #64](https://github.com/causeway-services/public-services-section/issues/64). The next state-changing Engineering edge is an atomic booking and reconciliation path in the *original financial ledger/treasury owner*, not a parallel reward database invented by a web page. This module is a new source-only pricing/coverage check and does not supersede `./rewarded-attention` advertiser unit economics.
