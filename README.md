@@ -173,3 +173,20 @@ One ledger owner/transaction boundary must atomically check current ledger revis
 **Customer-facing design:** `sold-out` or `payout capacity unavailable` when free reserves cannot cover the entire promised contract, while the existing *unpaid* demo and house promotions may remain playable. Discount promotions and loyalty boosts must have an enforceable maximum per purchase; the market can never promise an unbounded future multiplier. No balances derived from tiny 14-decimal BTC animations count as withdrawable sats until the actual ledger and Lightning payout unit are matched.
 
 Original consumer: [Causeway Public Services #64](https://github.com/causeway-services/public-services-section/issues/64). The next state-changing Engineering edge is an atomic booking and reconciliation path in the *original financial ledger/treasury owner*, not a parallel reward database invented by a web page. This module is a new source-only pricing/coverage check and does not supersede `./rewarded-attention` advertiser unit economics.
+
+
+## Millisatoshi exactness for finite digital reward contracts
+
+[Source-verified Lenticule competitor study](https://github.com/lenticule-science/economic-intelligence-research-service/blob/main/research/market-science/2026-10-17-reward-miner-competitive-reconstruction.md): one typical eight-hour free CloudMineCrypto display can project **less than one sat** under the provider's published simplified hashrate/index formula. A pricing engine that automatically rounds **each** such claim up to a full sat before reserving payout funds creates an artificial scarcity/cost floor, although a user's withdrawable balance may only become payable after many accrued credits.
+
+The read-only `./prefunded-lightning-inventory` export now accepts **two explicitly distinct** candidate inputs:
+
+- Legacy `{maxRewardSats:"...", maxRoutingFeeSats:"..."}` reserves whole sats, converted to exact msat.
+- Native `{unit:"msat", maxRewardMsat:"...", maxRoutingFeeMsat:"..."}` reserves exact sub-sat amounts without premature conversion.
+- Mixed units, missing explicit msat marker and malformed integer quantities are rejected; wallet and outstanding booking claims are always in **exact integer msat**.
+
+The new `./fixed-term-reward-ceiling` export produces a worst-case bound for an **authorized, finite** product: `ceil(rateMsatPerHour × durationSeconds × maximumAggregateMultiplierBps / (3600 × 10000)) + cappedExtraBonusMsat`, plus `maxWithdrawals × maxRoutingFeeMsatEach`. All product terms, including the maximum combined loyalty/boost multiplier and payout count, must be finite and source-authored. The combined `quoteFundedFixedTerm` passes these native msat limits into the existing Lightning quote. It does not establish real backing, acquire the source's authority, or create a financial contract.
+
+**Why not floor to zero?** In the independent USD ad-event [`./rewarded-attention`](./src/rewarded-attention.mjs) example, the offered whole-sat conversion is a distinct scenario quote. At the **payout and withdrawal boundary**, a user may combine separately funded tiny msat accruals until they meet a declared invoice/minimum and fee. The journal must retain that credit precisely *without creating its own unbacked sat*. A sub-sat **projection** is not a confirmed claim; a committed msat reward is only valid with server-held backing and lawful terms.
+
+[Source tests](test/prefunded-lightning-inventory.test.mjs) for legacy and msat inventory + [contract-ceiling tests](test/fixed-term-reward-ceiling.test.mjs) cover 21 independent assertions under in-isolate source execution. However, **the transaction writer is still absent**: two simultaneous quotes against the same uncommitted book may both fit. Before any public real-sat contract or recurring purchase, install one transactionally guarded, revision-checked, source-owned wallet+ledger booking and payout/reversal actor in the original Finance/Treasury producer. Follow [Financial Engineering #36](https://github.com/red-cup-engineering/financial-engineering-services-section/issues/36). A quote never conveys spending or custody authority.
