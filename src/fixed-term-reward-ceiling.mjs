@@ -60,9 +60,9 @@ export function quoteFundedFixedTerm({wallet,book,terms,actor,intentId,policy}={
  const ceiling=compileFixedTermRewardCeiling(terms);
  const q=assessPrefundedLightningSale({
   wallet,book,sale:{
-   walletId:wallet?.id,actor,intentId,termsRef:ceiling.termsRef,
-   maxRewardSats:ceiling.maxRewardSatsCeil,
-   maxRoutingFeeSats:ceiling.maxRoutingFeeSatsCeil,
+   walletId:wallet?.id,actor,intentId,termsRef:ceiling.termsRef,unit:"msat",
+   maxRewardMsat:ceiling.maxRewardMsat,
+   maxRoutingFeeMsat:ceiling.maxRoutingFeeMsat,
   },policy,
  });
  return Object.freeze({ceiling,capacity:q,acceptedSale:false,
