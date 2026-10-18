@@ -14,7 +14,7 @@ async function withHarness(fn){
  await writeFile(cln,[
   '#!/usr/bin/env node',
   "if(!process.argv.includes('--regtest')||!process.argv.includes('listpeerchannels')) process.exit(3);",
-  "process.stdout.write(JSON.stringify({channels:[{state:'CHANNELD_NORMAL',spendable_msat:'9000000msat'}]}));"
+  "process.stdout.write(JSON.stringify({channels:[{state:'CHANNELD_NORMAL',peer_connected:true,spendable_msat:'9000000msat'}]}));"
  ].join('\n')+'\n');
  await chmod(cln,0o700);
  const book=join(dir,'book.json'), sale=join(dir,'sale.json');
