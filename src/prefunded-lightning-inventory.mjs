@@ -106,7 +106,7 @@ export function projectCoreLightningOutbound({result, walletId, network, observe
   if (!result || !Array.isArray(result.channels)) throw new TypeError("Core Lightning listpeerchannels result must contain channels");
   let sum=0n, live=0;
   for (const [i,channel] of result.channels.entries()){
-    if (channel.state !== "CHANNELD_NORMAL") continue;
+    if (channel.state !== "CHANNELD_NORMAL" || channel.peer_connected !== true) continue;
     let msat=channel.spendable_msat;
     if (typeof msat==="number" && Number.isSafeInteger(msat) && msat>=0) msat=String(msat);
     if (typeof msat!=="string" || !/^(0|[1-9][0-9]*)(?:msat)?$/u.test(msat))
