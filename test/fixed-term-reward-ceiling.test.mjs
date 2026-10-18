@@ -29,12 +29,12 @@ test('composed Lightning capacity reserves whole sat rounded amount before sale'
  assert.equal(q.ceiling.requiredPrefundMsat,'40000');
  assert.equal(q.capacity.state,'capacity-quoted');
  assert.equal(q.capacity.capacityFits,true);
- assert.equal(q.capacity.saleReservation.maxRemainingRewardMsat,'40000');
- assert.equal(q.capacity.saleReservation.maxRemainingFeeMsat,'1000');
+ assert.equal(q.capacity.saleReservation.maxRemainingRewardMsat,'39700');
+ assert.equal(q.capacity.saleReservation.maxRemainingFeeMsat,'300');
  assert.equal(q.acceptedSale,false);
 });
 test('real-money contract refuses if cash wallet too small',()=>{
- const q=quoteFundedFixedTerm({wallet:{...wallet,spendableOutboundMsat:'90000'},
+ const q=quoteFundedFixedTerm({wallet:{...wallet,spendableOutboundMsat:'89999'},
   book,terms,actor:'alice',intentId:'sale-1',policy});
  assert.equal(q.capacity.state,'sold-out');
  assert.equal(q.capacity.saleReservation,null);
