@@ -91,16 +91,16 @@ test('unknown costs, malformed exact sats, and unknown obligations refuse',()=>{
 
 test('Core Lightning uses ACTIVE outbound spendable liquidity, not onchain nor inbound',()=>{
  const wallet=project({result:{channels:[
-  {state:'CHANNELD_NORMAL',spendable_msat:6000000,receivable_msat:999999999},
-  {state:'CHANNELD_NORMAL',spendable_msat:'4000000msat'},
-  {state:'ONCHAIN',spendable_msat:'9000000msat'},
+  {state:'CHANNELD_NORMAL',peer_connected:true,spendable_msat:6000000,receivable_msat:999999999},
+  {state:'CHANNELD_NORMAL',peer_connected:true,spendable_msat:'4000000msat'},
+  {state:'ONCHAIN',peer_connected:true,spendable_msat:'9000000msat'},
  ]},walletId:'node-1',network:'regtest',observedAt:'2026-10-17T23:00:00Z',sourceRef:'urn:cln:receipt'});
  assert.equal(wallet.ready,true);
  assert.equal(wallet.spendableOutboundMsat,'10000000');
 });
 
 test('missing channel spendable information cannot be substituted with local balance',()=>{
- assert.throws(()=>project({result:{channels:[{state:'CHANNELD_NORMAL',to_us_msat:9000000}]},
+ assert.throws(()=>project({result:{channels:[{state:'CHANNELD_NORMAL',peer_connected:true,to_us_msat:9000000}]},
   walletId:'node-1',network:'regtest',observedAt:'2026-10-17T23:00:00Z',sourceRef:'urn:cln:receipt'}),/spendable_msat/);
  const empty=project({result:{channels:[]},walletId:'node-1',network:'regtest',
   observedAt:'2026-10-17T23:00:00Z',sourceRef:'urn:cln:receipt'});
