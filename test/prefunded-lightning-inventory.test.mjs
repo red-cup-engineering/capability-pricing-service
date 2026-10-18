@@ -131,3 +131,26 @@ test('disconnected but otherwise normal Lightning channel contributes zero usabl
  ]},walletId:'node-1',network:'regtest',observedAt:'2026-10-17T23:00:00Z',sourceRef:'urn:cln:receipt'});
  assert.equal(observation.spendableOutboundMsat,'200000');
 });
+
+test('millisatoshi inventory does not round every small contract up to one sat',()=>{
+ const f=fixture();
+ const wallet={...f.wallet,spendableOutboundMsat:'2000'};
+ const book={...f.book,otherCommittedMsat:'0',claims:[]};
+ const policy={...f.policy,liquiditySafetyReserveMsat:'0'};
+ const sale={...f.sale,unit:'msat',maxRewardMsat:'125',maxRoutingFeeMsat:'25'};
+ delete sale.maxRewardSats; delete sale.maxRoutingFeeSats;
+ const q=quote({wallet,book,sale,policy});
+ assert.equal(q.state,'capacity-quoted');
+ assert.equal(q.saleReservation.maxRemainingRewardMsat,'125');
+ assert.equal(q.saleReservation.maxRemainingFeeMsat,'25');
+ assert.equal(q.additionalWholeOffersAtThisSnapshot,'13');
+ const booked={...book,revision:'next',claims:[q.saleReservation]};
+ const next=quote({wallet,book:booked,sale:{...sale,intentId:'another',actor:'another'},policy});
+ assert.equal(next.availableMsat,'1850');
+});
+test('misspecified sat and msat units cannot coexist or be reinterpreted',()=>{
+ const f=fixture();
+ assert.throws(()=>quote({...f,sale:{...f.sale,unit:'msat',maxRewardMsat:'1',maxRoutingFeeMsat:'0'}}),/mixed/);
+ assert.throws(()=>quote({...f,sale:{...f.sale,maxRewardMsat:'1'}}),/explicit msat/);
+ assert.throws(()=>quote({...f,sale:{...f.sale,unit:'btc'}}),/unit/);
+});
