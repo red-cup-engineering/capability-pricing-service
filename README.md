@@ -73,3 +73,47 @@ or a transactional shared store before relying on these observations.
 TLS termination, token provisioning/rotation, authenticated receiving and
 installed customer receiving must be separately demonstrated. A GitHub
 source commit or green local test is not itself production installation.
+
+## Rewarded-attention unit economics (no reward issuance)
+
+The pricing owner exports `./rewarded-attention`, `quoteRewardedAttentionUnit(input)`, and the `quote-rewarded-attention-unit` command (JSON request on stdin). These produce **scenarios only**: no advertiser approval, conversion verification, collected cash, reserve booking, BTC conversion, customer acquisition spend, wallet custody or end-user payout.
+
+Owning consumer [Causeway Public Services #64](https://github.com/causeway-services/public-services-section/issues/64); media acquisition [#53](https://github.com/causeway-services/public-media-services-section/issues/53); [Group Opportunity #34](https://github.com/561-group/561-group-opportunity-services-section/issues/34). One player's monetizable attention may create Group cash margin that pays for advertisements bringing other players. No player-to-player transfers, recruitment deposits, or income guaranteed by later signups. **House promotions have zero outside cash revenue**, although they may attract visitors to other Group products.
+
+### Synthetic worked input — not a supplier quote or current BTC rate
+
+```json
+{
+  "channel": "sponsored",
+  "offer": {
+    "provider": "example-only",
+    "sourceRef": "urn:unverified:example-offer",
+    "state": "quoted",
+    "publisherPayoutUsd": "0.100000"
+  },
+  "costs": {
+    "deliveryUsd": "0.005000",
+    "reversalReserveUsd": "0.020000",
+    "withdrawalFeeReserveUsd": "0.005000",
+    "supportComplianceUsd": "0.010000"
+  },
+  "policy": {
+    "acquisitionTargetUsd": "0.020000",
+    "retainedMarginUsd": "0.010000"
+  },
+  "funding": {
+    "unencumberedClearedUsd": "1.000000"
+  },
+  "btcQuote": {
+    "sourceRef": "urn:unverified:example-btc-quote",
+    "observedAt": "2026-10-17T22:00:00Z",
+    "usdPerBtc": "100000.00"
+  }
+}
+```
+
+At these entirely invented rates, the upper bound is **30 sats** in possible reward plus **$0.02** in separately proposed advertising acquisition allocation, after all specified costs and the retained margin floor. Actual rewards are **not** issued by a price quotation, and the source named above is deliberately unverified.
+
+**Required independent facts:** actual partner-approved rewarded traffic and payout terms; attributed signed conversion; reversals; conservative reserves; wallet and Lightning fees; reconciled **cleared unencumbered cash**; observed dated BTC/USD price; spend authority; retention and conservative after-cost contribution LTV versus independently measured acquisition cost. If a cost or cash input is unknown, the quote refuses instead of silently substituting zero. A missing BTC price produces only a USD envelope, not a sat promise. Sub-sat reward value is floored to zero.
+
+**Stage separation:** advertiser quote → eligible conversion → provider receivable → collected cash; player reward terms → verified/guaranteed obligation → wallet payout; acquisition allocation → authorized external campaign spend → observed new-user cohort. These are distinct economic resources. The calculator neither supplies atomic cash reservations nor authenticates advertiser payouts, so no public consumer may interpret its scenario as a real earning, revenue settlement, funded acquisition campaign or verified profit.
