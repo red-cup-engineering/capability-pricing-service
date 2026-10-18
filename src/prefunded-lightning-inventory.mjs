@@ -47,8 +47,21 @@ export function assessPrefundedLightningSale({wallet, book, sale, policy} = {}) 
   if (!Array.isArray(book.claims)) throw new TypeError("book.claims must be authoritative complete unsettled obligations");
   if (name(sale.walletId, "sale.walletId") !== walletId)
     throw new Error("wrong payout wallet");
-  const maximum = money(sale.maxRewardSats, "sale.maxRewardSats") * 1000n +
+  // Native millisatoshi liabilities avoid rounding every microscopic plan
+  // up to a whole sat. Conversion to withdrawable sats happens only at
+  // the wallet's actual payout boundary.
+  const msatUnit = sale.unit === "msat";
+  if (sale.unit !== undefined && sale.unit !== "msat" && sale.unit !== "sats")
+    throw new TypeError("sale unit must be sats or msat");
+  if (msatUnit && (sale.maxRewardSats !== undefined || sale.maxRoutingFeeSats !== undefined))
+    throw new TypeError("mixed sat and msat liability claims");
+  if (!msatUnit && (sale.maxRewardMsat !== undefined || sale.maxRoutingFeeMsat !== undefined))
+    throw new TypeError("msat liability requires explicit msat unit");
+  const rewardMsat = msatUnit ? money(sale.maxRewardMsat, "sale.maxRewardMsat") :
+    money(sale.maxRewardSats, "sale.maxRewardSats") * 1000n;
+  const feeMsat = msatUnit ? money(sale.maxRoutingFeeMsat, "sale.maxRoutingFeeMsat") :
     money(sale.maxRoutingFeeSats, "sale.maxRoutingFeeSats") * 1000n;
+  const maximum = rewardMsat + feeMsat;
   if (maximum === 0n) throw new Error("no payable maximum for purported real-reward contract");
   // Reserve the worst-case total for the entire duration, including every
   // possible multiplier, even though most eventual rewards may be smaller.
@@ -89,8 +102,8 @@ export function assessPrefundedLightningSale({wallet, book, sale, policy} = {}) 
     kind:"PrefundedLightningSaleQuote.v1", state:accepted?"capacity-quoted":"sold-out",
     capacityFits:accepted, saleReservation:accepted?Object.freeze({
       intentId, actor, walletId, termsRef, state:"reserved",
-      maxRemainingRewardMsat:(money(sale.maxRewardSats,"sale.maxRewardSats")*1000n).toString(),
-      maxRemainingFeeMsat:(money(sale.maxRoutingFeeSats,"sale.maxRoutingFeeSats")*1000n).toString(),
+      maxRemainingRewardMsat:rewardMsat.toString(),
+      maxRemainingFeeMsat:feeMsat.toString(),
       expectedBookRevision:revision, walletSourceRef:walletSource
     }):null,
     walletId, revision, network, spendableMsat:spendable.toString(),
