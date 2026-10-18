@@ -114,7 +114,7 @@ test('a quote is never falsely marked as payment, ledger commitment or user earn
 });
 
 test('stale simultaneous quotes expose why a transactional book writer is mandatory',()=>{
- const f=fixture();const c={...f,wallet:{...f.wallet,spendableOutboundMsat:'5000000'}};
+ const f=fixture();const c={...f,wallet:{...f.wallet,spendableOutboundMsat:'6000000'}};
  const a=quote({...c,sale:{...c.sale,actor:'a',intentId:'a'}});
  const b=quote({...c,sale:{...c.sale,actor:'b',intentId:'b'}});
  assert.equal(a.state,'capacity-quoted');
