@@ -69,7 +69,7 @@ export function assessPrefundedLightningSale({wallet, book, sale, policy} = {}) 
   }
   if (committed + liquidityHold > spendable)
     return Object.freeze({kind: "PrefundedLightningSaleQuote.v1", state:"suspended-underfunded",
-      admitted:false, saleReservation:null, walletId, revision, network,
+      capacityFits:false, saleReservation:null, walletId, revision, network,
       spendableMsat: spendable.toString(), coveredExistingMsat: committed.toString(),
       safetyReserveMsat:liquidityHold.toString(), availableMsat:"0",
       note:"Existing unsettled obligations and safety reserve already exceed the measured outbound liquidity. Do not sell; reconcile and replenish. Pure quote, not a wallet or ledger reservation."});
@@ -79,7 +79,7 @@ export function assessPrefundedLightningSale({wallet, book, sale, policy} = {}) 
     if (claim.actor !== actor || claim.termsRef !== termsRef || replay.amount !== maximum)
       throw new Error("idempotency key reused with a different actor, terms or maximum");
     return Object.freeze({kind:"PrefundedLightningSaleQuote.v1", state:"already-reserved",
-      admitted:false, saleReservation:null, walletId, revision, network,
+      capacityFits:false, saleReservation:null, walletId, revision, network,
       spendableMsat:spendable.toString(), coveredExistingMsat:committed.toString(),
       safetyReserveMsat:liquidityHold.toString(), availableMsat:available.toString(),
       note:"No new obligation. The host must independently verify the original booking and payment status."});
@@ -87,7 +87,7 @@ export function assessPrefundedLightningSale({wallet, book, sale, policy} = {}) 
   const accepted = available >= maximum;
   return Object.freeze({
     kind:"PrefundedLightningSaleQuote.v1", state:accepted?"capacity-quoted":"sold-out",
-    admitted:accepted, saleReservation:accepted?Object.freeze({
+    capacityFits:accepted, saleReservation:accepted?Object.freeze({
       intentId, actor, walletId, termsRef, state:"reserved",
       maxRemainingRewardMsat:(money(sale.maxRewardSats,"sale.maxRewardSats")*1000n).toString(),
       maxRemainingFeeMsat:(money(sale.maxRoutingFeeSats,"sale.maxRoutingFeeSats")*1000n).toString(),
