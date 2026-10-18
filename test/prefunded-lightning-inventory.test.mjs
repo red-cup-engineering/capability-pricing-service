@@ -21,7 +21,7 @@ test('whole-contract pre-funded quote includes every older liability and safety 
  const q=quote(fixture());
  assert.equal(q.kind,'PrefundedLightningSaleQuote.v1');
  assert.equal(q.state,'capacity-quoted');
- assert.equal(q.admitted,true);
+ assert.equal(q.capacityFits,true);
  assert.equal(q.spendableMsat,'10000000');
  assert.equal(q.coveredExistingMsat,'2600000');
  assert.equal(q.availableMsat,'6400000');
@@ -46,7 +46,7 @@ test('idempotent sale identity never returns a second reservation',()=>{
  const f=fixture();const claim=quote(f).saleReservation;
  const r=quote({...f,book:{...f.book,claims:[...f.book.claims,claim]}});
  assert.equal(r.state,'already-reserved');
- assert.equal(r.admitted,false);
+ assert.equal(r.capacityFits,false);
  assert.equal(r.saleReservation,null);
  assert.throws(()=>quote({...f,book:{...f.book,claims:[...f.book.claims,claim]},
    sale:{...f.sale,actor:'mallory'}}),/idempotency key/);
@@ -55,7 +55,7 @@ test('idempotent sale identity never returns a second reservation',()=>{
 test('sold out never authorizes a sale merely because it has a high price',()=>{
  const f=fixture();
  const q=quote({...f,sale:{...f.sale,maxRewardSats:'6401',maxRoutingFeeSats:'0'}});
- assert.equal(q.state,'sold-out');assert.equal(q.admitted,false);
+ assert.equal(q.state,'sold-out');assert.equal(q.capacityFits,false);
  assert.equal(q.saleReservation,null);
 });
 
