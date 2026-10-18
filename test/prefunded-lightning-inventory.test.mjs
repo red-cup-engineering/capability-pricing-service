@@ -123,3 +123,11 @@ test('stale simultaneous quotes expose why a transactional book writer is mandat
    sale:{...c.sale,actor:'b',intentId:'b'}};
  assert.equal(quote(after).state,'sold-out');
 });
+
+test('disconnected but otherwise normal Lightning channel contributes zero usable sales capacity',()=>{
+ const observation=project({result:{channels:[
+  {state:'CHANNELD_NORMAL',peer_connected:false,spendable_msat:'100000000msat'},
+  {state:'CHANNELD_NORMAL',peer_connected:true,spendable_msat:'200000msat'},
+ ]},walletId:'node-1',network:'regtest',observedAt:'2026-10-17T23:00:00Z',sourceRef:'urn:cln:receipt'});
+ assert.equal(observation.spendableOutboundMsat,'200000');
+});
