@@ -41,5 +41,8 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "dependencies": {
+    "@red-cup-engineering/semiotic-eavt-services-section": "0.3.1"
   }
 }
