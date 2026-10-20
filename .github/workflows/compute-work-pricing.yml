@@ -1,0 +1,36 @@
+name: Capability compute Work pricing conformance
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "test/**"
+      - "scripts/**"
+      - "package.json"
+      - ".github/workflows/compute-work-pricing.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "test/**"
+      - "scripts/**"
+      - "package.json"
+      - ".github/workflows/compute-work-pricing.yml"
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install original SEAVT journal dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Native syntax and full original capability-pricing tests
+        run: npm run verify

@@ -1,6 +1,6 @@
 {
   "name": "@red-cup-engineering/capability-pricing-service",
-  "version": "0.1.4",
+  "version": "0.1.5-dev.1",
   "private": false,
   "type": "module",
   "description": "Ranks same-denomination provider offers by expected consideration per verified result using explicit costs and observed task-class outcomes.",
@@ -9,18 +9,22 @@
     "./attention-admission": "./src/attention-admission.mjs",
     "./rewarded-attention": "./src/rewarded-attention.mjs",
     "./prefunded-lightning-inventory": "./src/prefunded-lightning-inventory.mjs",
-    "./fixed-term-reward-ceiling": "./src/fixed-term-reward-ceiling.mjs"
+    "./fixed-term-reward-ceiling": "./src/fixed-term-reward-ceiling.mjs",
+    "./compute-work-hiring": "./src/compute-work-hiring.mjs"
   },
   "bin": {
     "capability-price": "./scripts/capability-price.mjs",
     "capability-reservation-quote": "./scripts/capability-reservation-quote.mjs",
     "serve-capability-pricing": "./scripts/server.mjs",
     "quote-rewarded-attention-unit": "./scripts/quote-rewarded-attention.mjs",
-    "quote-regtest-lightning-inventory": "./scripts/quote-regtest-lightning-inventory.mjs"
+    "quote-regtest-lightning-inventory": "./scripts/quote-regtest-lightning-inventory.mjs",
+    "quote-compute-work": "./scripts/quote-compute-work.mjs"
   },
   "scripts": {
     "start": "node scripts/server.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "check": "node --check src/compute-work-hiring.mjs && node --check scripts/quote-compute-work.mjs && node --check test/compute-work-hiring.test.mjs",
+    "verify": "npm run check && npm test"
   },
   "files": [
     "scripts",
@@ -37,5 +41,8 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "dependencies": {
+    "@red-cup-engineering/semiotic-eavt-services-section": "0.3.1"
   }
 }
