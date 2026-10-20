@@ -1,0 +1,189 @@
+/**
+ * Research-side compute procurement economics: rank cost per *accepted Work*
+ * using the original quoteReservationPrice. No provider API, keys, or funds.
+ */
+import { quoteReservationPrice } from "./pricing.mjs";
+
+export const COMPUTE_COST_CATEGORIES = Object.freeze([
+  "gpu-seconds", "cpu-and-ram", "storage", "egress", "startup",
+  "checkpoint-retry", "verification", "payment", "brokerage",
+  "support", "capital-carry", "refund-reserve"
+]);
+export const COMPUTE_RELATIONSHIPS = Object.freeze([
+  "direct-provider", "noncustodial-referral", "managed-result",
+  "native-network-gateway", "raw-capacity-resale"
+]);
+const DIGITS = /^(?:0|[1-9][0-9]{0,39})$/u;
+const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u;
+const named = x => typeof x === "string" && x.length > 0 && x.trim() === x;
+const validTime = x => typeof x === "string" && CLOCK.test(x) && Number.isFinite(Date.parse(x));
+const https = x => {
+  try {
+    const u = new URL(x);
+    return u.protocol === "https:" && !!u.hostname && !u.username && !u.password && !u.hash;
+  } catch { return false; }
+};
+const decimal = (x, positive = false) => typeof x === "string" && DIGITS.test(x) && (!positive || BigInt(x) > 0n);
+const fraction = (x, positive = false) => !!x && decimal(x.numerator, positive) && decimal(x.denominator, true);
+const denom = x => !!x && ["kind", "asset", "unit"].every(k => named(x[k]));
+const sameDenom = (a, b) => denom(a) && denom(b) && ["kind", "asset", "unit"].every(k => a[k] === b[k]);
+const difference = (a, b) =>
+  BigInt(a.numerator) * BigInt(b.denominator) - BigInt(b.numerator) * BigInt(a.denominator);
+const refusal = (offer, reasons) => Object.freeze({
+  providerId: offer?.providerId ?? null, offerRef: offer?.offerRef ?? null,
+  state: "held", reasons: Object.freeze([...new Set(reasons)]),
+  modeledPricePerAcceptedResult: null, purchased: false, received: false,
+  commissionReceived: false
+});
+
+/**
+ * An original provider's asserted offer/terms/observations remain assertions.
+ * This assay produces conditionally comparable quotes, never a binding offer.
+ *
+ * Every one of the twelve price categories must be explicitly accounted for,
+ * including categories whose cost is zero; no hidden default service fee.
+ */
+export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
+  if (!validTime(asOf)) throw new TypeError("offset-aware-as-of-required");
+  const now = Date.parse(asOf);
+  if (!named(demand?.workRef) || !named(demand?.taskClass) ||
+      !named(demand?.acceptanceRef) ||
+      !Number.isSafeInteger(demand?.minVramGiB) || demand.minVramGiB < 1 ||
+      !Number.isSafeInteger(demand?.maxElapsedSeconds) || demand.maxElapsedSeconds < 1 ||
+      !Array.isArray(demand?.allowedRegions) || demand.allowedRegions.length === 0 ||
+      demand.allowedRegions.some(x => !named(x)) ||
+      typeof demand?.mayPreempt !== "boolean" ||
+      !["public", "confidential"].includes(demand?.dataClass) ||
+      !denom(demand?.budget?.denomination) ||
+      !fraction(demand?.budget?.maximum, true)) {
+    throw new TypeError("bounded-original-work-demand-required");
+  }
+  if (!Array.isArray(offers) || offers.length < 1 || offers.length > 100)
+    throw new TypeError("bounded-provider-population-required");
+
+  const seen = new Set(), rows = [];
+  for (const offer of offers) {
+    const errors = [];
+    if (!named(offer?.providerId) || seen.has(offer.providerId)) errors.push("unique-provider-required");
+    if (named(offer?.providerId)) seen.add(offer.providerId);
+    if (!https(offer?.offerRef) || !https(offer?.terms?.sourceUrl) ||
+        !named(offer?.originalActor) || !named(offer?.originalPayee))
+      errors.push("original-offer-actor-payee-and-terms-required");
+    if (!COMPUTE_RELATIONSHIPS.includes(offer?.relationship) ||
+        !Array.isArray(offer?.terms?.permittedRelationships) ||
+        !offer.terms.permittedRelationships.includes(offer.relationship) ||
+        offer.terms.status !== "permitted")
+      errors.push("commercial-relationship-not-permitted");
+    if (offer?.relationship === "raw-capacity-resale" &&
+        !https(offer?.terms?.explicitSubleaseAgreementUrl))
+      errors.push("raw-capacity-resale-permission-unproven");
+
+    const broker = offer?.costs?.brokerage;
+    if (offer?.relationship === "noncustodial-referral" &&
+        broker && fraction(broker.rate) && broker.rate.numerator !== "0" &&
+        !https(offer?.terms?.brokerFeeAgreementUrl))
+      errors.push("broker-fee-agreement-required");
+    if (!validTime(offer?.observedAt) || !validTime(offer?.expiresAt) ||
+        Date.parse(offer?.observedAt) > now || Date.parse(offer?.expiresAt) <= now ||
+        Date.parse(offer?.expiresAt) <= Date.parse(offer?.observedAt))
+      errors.push("expired-future-or-unbounded-quote");
+
+    const supply = offer?.supply;
+    if (!Number.isSafeInteger(supply?.vramGiB) || supply.vramGiB < demand.minVramGiB ||
+        !Number.isSafeInteger(supply?.gpuCount) || supply.gpuCount < 1)
+      errors.push("gpu-capacity-unproven");
+    if (!demand.allowedRegions.includes(supply?.region))
+      errors.push("data-residency-region-refused");
+    if (!demand.mayPreempt && supply?.preemptible !== false)
+      errors.push("preemption-incompatible");
+    if (demand.dataClass === "confidential" &&
+        supply?.dataProtection !== "confidential-admitted")
+      errors.push("confidential-work-not-admitted");
+    if (!Number.isSafeInteger(supply?.elapsedSeconds) || supply.elapsedSeconds < 1 ||
+        supply.elapsedSeconds > demand.maxElapsedSeconds || !https(supply?.measurementSourceUrl))
+      errors.push("performance-and-duration-unproved");
+
+    const history = offer?.deliveryHistory;
+    if (history?.taskClass !== demand.taskClass ||
+        !https(history?.sourceUrl) ||
+        !Number.isSafeInteger(history?.attempted) || history.attempted < 1 ||
+        !Number.isSafeInteger(history?.accepted) || history.accepted < 1 ||
+        history.accepted > history.attempted)
+      errors.push("work-class-delivery-history-missing");
+    const price = offer?.pricing;
+    if (!sameDenom(price?.denomination, demand.budget.denomination))
+      errors.push("cross-denomination-without-verified-fx");
+    if (!fraction(price?.marginRate) || !fraction(price?.increment, true))
+      errors.push("quote-margin-or-settlement-quantum-missing");
+
+    const costs = offer?.costs, kinds = costs && typeof costs === "object" && !Array.isArray(costs)
+      ? Object.keys(costs) : [];
+    if (kinds.length !== COMPUTE_COST_CATEGORIES.length ||
+        kinds.some(k => !COMPUTE_COST_CATEGORIES.includes(k)))
+      errors.push("complete-twelve-cost-categories-required");
+    const resourceLots = [], explicitZero = [];
+    if (kinds.length === COMPUTE_COST_CATEGORIES.length) {
+      for (const kind of COMPUTE_COST_CATEGORIES) {
+        const line = costs[kind];
+        if (!fraction(line?.quantity) || !fraction(line?.rate) || !https(line?.sourceUrl)) {
+          errors.push("inexact-or-unsourced-cost:" + kind); continue;
+        }
+        const qty = BigInt(line.quantity.numerator), rate = BigInt(line.rate.numerator);
+        if (kind === "gpu-seconds" &&
+            (qty === 0n || rate === 0n ||
+             Number.isSafeInteger(supply?.elapsedSeconds) &&
+             Number.isSafeInteger(supply?.gpuCount) &&
+             qty < BigInt(supply.elapsedSeconds) * BigInt(supply.gpuCount) *
+                  BigInt(line.quantity.denominator)))
+          errors.push("unpriced-or-underbilled-gpu-work");
+        if (qty === 0n || rate === 0n) { explicitZero.push(kind); continue; }
+        resourceLots.push({
+          resource: kind,
+          quantity: line.quantity,
+          unitRate: { ...price?.denomination, amount: line.rate }
+        });
+      }
+    }
+    if (errors.length) { rows.push(refusal(offer, errors)); continue; }
+    let conditional;
+    try {
+      conditional = quoteReservationPrice({
+        denomination: price.denomination, resourceLots, boundaryCosts: [],
+        verifiedDeliveryProbability: {
+          numerator: String(history.accepted), denominator: String(history.attempted)
+        },
+        marginRate: price.marginRate, quoteIncrement: price.increment
+      });
+    } catch {
+      rows.push(refusal(offer, ["invalid-underlying-capability-price-input"])); continue;
+    }
+    const overBudget = difference(conditional.consideration.amount, demand.budget.maximum) > 0n;
+    rows.push(Object.freeze({
+      providerId: offer.providerId, offerRef: offer.offerRef, originalActor: offer.originalActor,
+      originalPayee: offer.originalPayee, relationship: offer.relationship,
+      state: overBudget ? "over-budget" : "conditional-comparable",
+      reasons: Object.freeze(overBudget ? ["whole-work-budget-exceeded"] : []),
+      denomination: conditional.denomination,
+      modeledPricePerAcceptedResult: conditional.consideration.amount,
+      costBasis: conditional.costBasis.resourceLots, explicitZeroCostKinds: Object.freeze(explicitZero),
+      assertedDeliveryRatio: Object.freeze({ accepted: history.accepted, attempted: history.attempted }),
+      sourceAssertionsIndependentlyVerified: false,
+      purchased: false, received: false, commissionReceived: false
+    }));
+  }
+  const comparable = rows.filter(x => x.state === "conditional-comparable");
+  comparable.sort((a,b) => {
+    const d = difference(a.modeledPricePerAcceptedResult,b.modeledPricePerAcceptedResult);
+    return d < 0n ? -1 : d > 0n ? 1 : a.providerId.localeCompare(b.providerId);
+  });
+  return Object.freeze({
+    type: "ComputeWorkPriceComparison", version: 1, workRef: demand.workRef, asOf,
+    conditionalRanked: Object.freeze(comparable),
+    held: Object.freeze(rows.filter(x => x.state !== "conditional-comparable")),
+    lowestConditional: comparable[0] ?? null,
+    currentSourceObservationsIndependentlyVerified: false,
+    buyerOrBrokerAuthorized: false, liveQuoteOrSupplyVerified: false,
+    completedWorkOrSettlementVerified: false,
+    note: "Quoted provider terms, delivery counts and price lines are unverified input claims until source-owned independent receiving"
+  });
+}
