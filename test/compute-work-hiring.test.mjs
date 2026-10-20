@@ -79,7 +79,7 @@ test("an explicit positive margin changes managed-service quote but not verified
  assert.equal(x.lowestConditional.received,false);
 });
 test("all omitted costs are unknown, not zero",()=>{
- const a=ready();delete a.costs["network-egress-gib"];
+ const a=ready();delete a.costs["egress"];
  const x=held(a);
  assert.ok(x.reasons.includes("complete-twelve-cost-categories-required"));
 });
