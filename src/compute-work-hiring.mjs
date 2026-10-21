@@ -11,7 +11,8 @@ export const COMPUTE_COST_CATEGORIES = Object.freeze([
 ]);
 export const COMPUTE_RELATIONSHIPS = Object.freeze([
   "direct-provider", "noncustodial-referral", "managed-result",
-  "native-network-gateway", "raw-capacity-resale"
+  "native-network-gateway", "raw-capacity-resale",
+  "principal-held-capacity"
 ]);
 const DIGITS = /^(?:0|[1-9][0-9]{0,39})$/u;
 const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u;
@@ -29,6 +30,16 @@ const denom = x => !!x && ["kind", "asset", "unit"].every(k => named(x[k]));
 const sameDenom = (a, b) => denom(a) && denom(b) && ["kind", "asset", "unit"].every(k => a[k] === b[k]);
 const difference = (a, b) =>
   BigInt(a.numerator) * BigInt(b.denominator) - BigInt(b.numerator) * BigInt(a.denominator);
+const addExact = (a, b) => ({
+  numerator: String(BigInt(a.numerator) * BigInt(b.denominator) +
+    BigInt(b.numerator) * BigInt(a.denominator)),
+  denominator: String(BigInt(a.denominator) * BigInt(b.denominator))
+});
+const multiplyExact = (a, b) => ({
+  numerator: String(BigInt(a.numerator) * BigInt(b.numerator)),
+  denominator: String(BigInt(a.denominator) * BigInt(b.denominator))
+});
+const ZERO = Object.freeze({ numerator: "0", denominator: "1" });
 const refusal = (offer, reasons) => Object.freeze({
   providerId: offer?.providerId ?? null, offerRef: offer?.offerRef ?? null,
   state: "held", reasons: Object.freeze([...new Set(reasons)]),
@@ -58,6 +69,15 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
       !fraction(demand?.budget?.maximum, true)) {
     throw new TypeError("bounded-original-work-demand-required");
   }
+  // This is an OPTIONAL constraint on *new cash*, independent of the
+  // original all-in economic resource price. No purchase is executed here.
+  const cashLimit = demand?.incrementalCashLimit;
+  if (cashLimit !== undefined &&
+      (!named(demand?.principalRef) ||
+       !sameDenom(cashLimit?.denomination, demand?.budget?.denomination) ||
+       !fraction(cashLimit?.maximum))) {
+    throw new TypeError("bounded-principal-cash-limit-required");
+  }
   if (!Array.isArray(offers) || offers.length < 1 || offers.length > 100)
     throw new TypeError("bounded-provider-population-required");
 
@@ -77,6 +97,11 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
     if (offer?.relationship === "raw-capacity-resale" &&
         !https(offer?.terms?.explicitSubleaseAgreementUrl))
       errors.push("raw-capacity-resale-permission-unproven");
+    // Provider prepayment does not make its RETAIL quote free to the buyer.
+    // Only capacity already attributed to this Work principal can be tested
+    // against an incremental-cash ceiling. This is still NOT an allocation.
+    if (cashLimit && offer?.relationship !== "principal-held-capacity")
+      errors.push("principal-held-capacity-required");
 
     const broker = offer?.costs?.brokerage;
     if (offer?.relationship === "noncustodial-referral" &&
@@ -122,6 +147,7 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
         kinds.some(k => !COMPUTE_COST_CATEGORIES.includes(k)))
       errors.push("complete-twelve-cost-categories-required");
     const resourceLots = [], explicitZero = [];
+    let incrementalCashPerAttempt = ZERO;
     if (kinds.length === COMPUTE_COST_CATEGORIES.length) {
       for (const kind of COMPUTE_COST_CATEGORIES) {
         const line = costs[kind];
@@ -129,6 +155,37 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
           errors.push("inexact-or-unsourced-cost:" + kind); continue;
         }
         const qty = BigInt(line.quantity.numerator), rate = BigInt(line.rate.numerator);
+        if (cashLimit) {
+          if (line.cashDisposition === "new-cash") {
+            incrementalCashPerAttempt = addExact(incrementalCashPerAttempt,
+              multiplyExact(line.quantity, line.rate));
+          } else if (line.cashDisposition === "previously-funded") {
+            // One candidate, one observation cut: this checks *modeled* usable
+            // headroom, not an atomic ledger reservation across candidates.
+            const entitlement = line.entitlement;
+            const available = fraction(entitlement?.remainingQuantity, true);
+            const current = validTime(entitlement?.observedAt) &&
+              validTime(entitlement?.expiresAt) &&
+              Date.parse(entitlement.observedAt) <= now &&
+              Date.parse(entitlement.expiresAt) > now &&
+              Date.parse(entitlement.expiresAt) > Date.parse(entitlement.observedAt);
+            const historyReady = Number.isSafeInteger(history?.attempted) &&
+              Number.isSafeInteger(history?.accepted) &&
+              history.accepted > 0 && history.attempted >= history.accepted;
+            const expectedConsumption = historyReady
+              ? multiplyExact(line.quantity, {
+                numerator: String(history.attempted),
+                denominator: String(history.accepted)
+              }) : null;
+            if (!named(entitlement?.accountRef) ||
+                entitlement?.principalRef !== demand.principalRef ||
+                !https(entitlement?.sourceUrl) || !current || !available ||
+                !historyReady || difference(entitlement.remainingQuantity, expectedConsumption) < 0n)
+              errors.push("prior-entitlement-missing-expired-or-exhausted:" + kind);
+          } else {
+            errors.push("cost-cash-disposition-required:" + kind);
+          }
+        }
         if (kind === "gpu-seconds" &&
             (qty === 0n || rate === 0n ||
              Number.isSafeInteger(supply?.elapsedSeconds) &&
@@ -145,6 +202,14 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
       }
     }
     if (errors.length) { rows.push(refusal(offer, errors)); continue; }
+    const incrementalCashPerAccepted = cashLimit
+      ? multiplyExact(incrementalCashPerAttempt, {
+        numerator: String(history.attempted),
+        denominator: String(history.accepted)
+      }) : null;
+    if (cashLimit && difference(incrementalCashPerAccepted, cashLimit.maximum) > 0n) {
+      rows.push(refusal(offer, ["incremental-cash-ceiling-exceeded"])); continue;
+    }
     let conditional;
     try {
       conditional = quoteReservationPrice({
@@ -168,6 +233,11 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
       costBasis: conditional.costBasis.resourceLots, explicitZeroCostKinds: Object.freeze(explicitZero),
       assertedDeliveryRatio: Object.freeze({ accepted: history.accepted, attempted: history.attempted }),
       sourceAssertionsIndependentlyVerified: false,
+      ...(cashLimit ? {
+        modeledIncrementalCashPerAcceptedResult: incrementalCashPerAccepted,
+        incrementalCashLimit: cashLimit.maximum,
+        entitledCapacityReserved: false
+      } : {}),
       purchased: false, received: false, commissionReceived: false
     }));
   }
@@ -184,6 +254,10 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
     currentSourceObservationsIndependentlyVerified: false,
     buyerOrBrokerAuthorized: false, liveQuoteOrSupplyVerified: false,
     completedWorkOrSettlementVerified: false,
-    note: "Quoted provider terms, delivery counts and price lines are unverified input claims until source-owned independent receiving"
+    ...(cashLimit ? {
+      incrementalCashLimit: cashLimit.maximum,
+      headroomAndCashIndependentlyVerified: false
+    } : {}),
+    note: "Quoted provider terms, delivery counts, entitlements and price lines are unverified input claims until source-owned independent receiving"
   });
 }
