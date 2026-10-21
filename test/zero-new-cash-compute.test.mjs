@@ -122,7 +122,7 @@ test("a permissive cash ceiling still counts retries by exact fractions",()=>{
   const d=demand();d.incrementalCashLimit.maximum=amount(13,100);
   assert.ok(refused(o,d).includes("incremental-cash-ceiling-exceeded"));
   d.incrementalCashLimit.maximum=amount(2,15);
-  assert.deepEqual(quote(o,d).lowestConditional.modeledIncrementalCashPerAcceptedResult,amount(8,60));
+  assert.deepEqual(quote(o,d).lowestConditional.modeledIncrementalCashPerAcceptedResult,amount(2,15));
 });
 
 test("a nominally zero GPU rate is still an unpriced resource, not permission to consume it",()=>{
