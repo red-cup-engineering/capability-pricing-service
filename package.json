@@ -44,5 +44,9 @@
   },
   "dependencies": {
     "@red-cup-engineering/semiotic-eavt-services-section": "0.3.1"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/561-group/.github/blob/main/TIPS.md"
   }
 }
