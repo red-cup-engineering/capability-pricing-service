@@ -217,3 +217,72 @@ A reproducible synthetic fixture in `test/compute-work-hiring.test.mjs` illustra
 
 Run `npm run verify` for the complete native package and syntax checks, or feed one fully source-qualified JSON request on stdin into `quote-compute-work`; the command prints the exact conditional decision structure with refusals and performs **no payment**.
 
+
+## Zero-additional-cash principal-held compute (source-only assay)
+
+The existing `quote-compute-work` input may include `demand.principalRef`
+and `demand.incrementalCashLimit`:
+
+```json
+{
+  "principalRef": "actor:accountable-buyer",
+  "incrementalCashLimit": {
+    "denomination": {"kind": "currency", "asset": "USD", "unit": "USD"},
+    "maximum": {"numerator": "0", "denominator": "1"}
+  }
+}
+```
+
+These fields extend a **complete ordinary bounded Work demand**, including
+its distinct positive total economic `budget.maximum`, source-referenced
+acceptance, GPU/region/privacy/performance constraints and as-of cut. They
+are not a new Work API or an external bill authorization. With this
+constraint, only a candidate offered as `principal-held-capacity` and
+permitted in its original terms is considered. A third party's already-paid
+GPU **does not mean the buyer has free access to its retail service**.
+
+All twelve source-priced `offer.costs[kind]` must explicitly specify
+`cashDisposition: "new-cash" | "previously-funded"`. The former counts
+the exact quantity × rate toward **additional cash**; the latter is excluded
+from *additional cash only*, never from underlying resource economics.
+For each `previously-funded` cost line the source must supply a bounded
+`entitlement`:
+
+```json
+{
+  "principalRef": "actor:accountable-buyer",
+  "accountRef": "provider-account:original-resource-identity",
+  "sourceUrl": "https://example.org/entitlement-and-headroom-observation",
+  "observedAt": "2026-10-21T04:15:00Z",
+  "expiresAt": "2026-10-21T06:00:00Z",
+  "remainingQuantity": {"numerator": "160", "denominator": "1"}
+}
+```
+
+Units follow the corresponding cost line (e.g. GPU-seconds), **not** a
+convertible universal quota token. The observation must be current,
+source-qualified and attributable to the *same principal*; remaining
+quantity must cover the job's quantity times task-class attempted/accepted
+ratio. Shared account windows, simultaneous allocations, provider-specific
+quota debits, expiration/reset rules, electricity, egress, engineering
+attention, contingent liabilities and other duties still require original
+resource/ledger adjudication before any installation or run.
+
+The output preserves both `modeledPricePerAcceptedResult` (positive
+economic cost/shadow price) and
+`modeledIncrementalCashPerAcceptedResult` (new cash only). A zero-dollar
+cash limit holds any positive modeled incremental cash, missing 12-kind
+classification, wrong principal, uncurrent entitlement or insufficient
+retry-adjusted headroom. Nominally free/unpriced GPU-seconds are still
+refused; a previously committed capacity has an independently attributable
+economic resource cost even when it needs no further cash payment.
+
+**Assurance is deliberately limited.** All supplied terms, metering and
+delivery histories remain unverified source assertions, and no entitlement
+is atomically reserved. Neither a positive comparison nor a zero cash
+estimate proves actual account ownership, paid entitlement balance,
+installed routing, customer acceptance, revenue, settlement, profit,
+electricity/carbon impacts or authority to start workloads. Original Coesite
+Operations and Group CFO work must independently receive the account,
+service and external income observations; do not reimplement their
+scheduler, ledger or market. See [engineering requirement #5](https://github.com/red-cup-engineering/capability-pricing-service/issues/5).
