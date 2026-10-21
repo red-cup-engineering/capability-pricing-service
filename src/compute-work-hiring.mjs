@@ -30,15 +30,23 @@ const denom = x => !!x && ["kind", "asset", "unit"].every(k => named(x[k]));
 const sameDenom = (a, b) => denom(a) && denom(b) && ["kind", "asset", "unit"].every(k => a[k] === b[k]);
 const difference = (a, b) =>
   BigInt(a.numerator) * BigInt(b.denominator) - BigInt(b.numerator) * BigInt(a.denominator);
-const addExact = (a, b) => ({
-  numerator: String(BigInt(a.numerator) * BigInt(b.denominator) +
-    BigInt(b.numerator) * BigInt(a.denominator)),
-  denominator: String(BigInt(a.denominator) * BigInt(b.denominator))
-});
-const multiplyExact = (a, b) => ({
-  numerator: String(BigInt(a.numerator) * BigInt(b.numerator)),
-  denominator: String(BigInt(a.denominator) * BigInt(b.denominator))
-});
+const canonical = (numerator, denominator) => {
+  // Normalize exact rational cash quantities (not floats) so zero has
+  // one stable carrier: 0/1, regardless of the task-class retry ratio.
+  let n = BigInt(numerator), d = BigInt(denominator);
+  let a = n < 0n ? -n : n, b = d;
+  while (b !== 0n) [a, b] = [b, a % b];
+  return { numerator: String(n / a), denominator: String(d / a) };
+};
+const addExact = (a, b) => canonical(
+  BigInt(a.numerator) * BigInt(b.denominator) +
+    BigInt(b.numerator) * BigInt(a.denominator),
+  BigInt(a.denominator) * BigInt(b.denominator)
+);
+const multiplyExact = (a, b) => canonical(
+  BigInt(a.numerator) * BigInt(b.numerator),
+  BigInt(a.denominator) * BigInt(b.denominator)
+);
 const ZERO = Object.freeze({ numerator: "0", denominator: "1" });
 const refusal = (offer, reasons) => Object.freeze({
   providerId: offer?.providerId ?? null, offerRef: offer?.offerRef ?? null,
