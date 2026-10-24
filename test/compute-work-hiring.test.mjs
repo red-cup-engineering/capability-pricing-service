@@ -36,6 +36,139 @@ const ready = (id) => {
 };
 const held = (x) => quote([x]).held[0];
 
+// CPU batch services (BOINC/Golem-style Work, Slurm resource dimensions,
+// Akash CPU provider markets) are no longer silently rejected for lacking GPU.
+// All figures here are EXPLICIT SYNTHETIC supplier assertions, not live bids.
+const cpuWork = () => {
+  const demand = { ...work(), taskClass: "cpu-batch", computeKind: "cpu",
+    minCpuCores: 2, minMemoryGiB: 4 };
+  delete demand.minVramGiB;
+  return demand;
+};
+const cpuReady = (id = "cpu-worker") => {
+  const offer = ready(id);
+  offer.supply = { ...offer.supply, cpuCores: 2, memoryGiB: 4, gpuCount: 0 };
+  delete offer.supply.vramGiB;
+  offer.deliveryHistory.taskClass = "cpu-batch";
+  offer.costs["gpu-seconds"] = line("0","0");
+  offer.costs["cpu-and-ram"] = {
+    ...line("1","3"),
+    reservationBasis: { cpuCoreSeconds: "120", ramGiBSeconds: "240" },
+  };
+  return offer;
+};
+const cpuQuote = (offers, demand = cpuWork()) =>
+  quote(offers,demand);
+
+test("CPU-only Work prices two measured source-claimed capacity dimensions in the original exact provider quote",()=>{
+  const result = cpuQuote([cpuReady()]);
+  assert.equal(result.computeKind,"cpu");
+  assert.equal(result.conditionalRanked.length,1);
+  const admitted=result.lowestConditional;
+  assert.equal(admitted.computeKind,"cpu");
+  assert.deepEqual(admitted.resourceRequirements,
+    {minCpuCores:2,minMemoryGiB:4});
+  assert.deepEqual(admitted.assertedReservedResourceTime,
+    {cpuCoreSeconds:"120",ramGiBSeconds:"240",independentlyMeasured:false});
+  assert.deepEqual(admitted.modeledPricePerAcceptedResult,frac(15,4));
+  assert.equal(admitted.sourceAssertionsIndependentlyVerified,false);
+  assert.equal(result.buyerOrBrokerAuthorized,false);
+  assert.equal(result.completedWorkOrSettlementVerified,false);
+  assert.equal(result.conditionalRanked[0].purchased,false);
+});
+test("CPU provider needs actual CPU, RAM and provisioned time; a GPU never substitutes for missing core capacity",()=>{
+  const a=cpuReady();a.supply.cpuCores=1;a.supply.memoryGiB=3;
+  const x=cpuQuote([a]);
+  assert.ok(x.held[0].reasons.includes("cpu-memory-capacity-unproven"));
+  a.supply.cpuCores=2;a.supply.memoryGiB=4;
+  delete a.supply.cpuCores;
+  assert.ok(cpuQuote([a]).held[0].reasons.includes("cpu-memory-capacity-unproven"));
+  a.supply.cpuCores=2;
+  assert.equal(cpuQuote([a]).conditionalRanked.length,1);
+});
+test("CPU-only cost must price both source-bounded core-seconds and RAM-GiB-seconds",()=>{
+  const def=cpuReady();
+  for(const invalid of [
+    {reservationBasis:undefined},
+    {reservationBasis:{cpuCoreSeconds:"60",ramGiBSeconds:"240"}},
+    {reservationBasis:{cpuCoreSeconds:"120",ramGiBSeconds:"120"}},
+    {reservationBasis:{cpuCoreSeconds:"120",ramGiBSeconds:"0"}},
+    {reservationBasis:{cpuCoreSeconds:"1.5",ramGiBSeconds:"240"}},
+    {rate:frac(0)},
+    {quantity:frac(0)}
+  ]){
+    const changed=structuredClone(def);
+    changed.costs["cpu-and-ram"]={...changed.costs["cpu-and-ram"],...invalid};
+    const result=cpuQuote([changed]);
+    assert.ok(result.held[0].reasons.includes("unpriced-or-underbilled-cpu-ram-work"),
+      JSON.stringify(invalid));
+  }
+  const duplicate=cpuReady();
+  duplicate.costs["gpu-seconds"]=line("1","1");
+  assert.ok(cpuQuote([duplicate]).held[0].reasons.includes("cpu-only-work-has-gpu-charge"));
+});
+test("CPU rented value ranking uses accepted Work rate rather than raw hourly advertisement",()=>{
+ const reliable=cpuReady("verified-cpu");
+ reliable.deliveryHistory={...reliable.deliveryHistory,accepted:5,attempted:5};
+ const cheap=cpuReady("cheap-cpu");
+ cheap.costs["cpu-and-ram"].rate=frac(2);
+ cheap.deliveryHistory={...cheap.deliveryHistory,accepted:1,attempted:5};
+ const rows=cpuQuote([cheap,reliable]);
+ assert.deepEqual(rows.conditionalRanked.map(r=>r.providerId),["verified-cpu","cheap-cpu"]);
+ assert.deepEqual(rows.conditionalRanked.map(r=>r.modeledPricePerAcceptedResult),
+   [frac(3),frac(10)]);
+ assert.equal(rows.completedWorkOrSettlementVerified,false);
+});
+test("CPU Work enforces regions, deadlines, confidentiality and nonpreemption like GPU Work",()=>{
+ const a=cpuReady(), d=cpuWork();
+ a.supply.region="EU";a.supply.preemptible=true;
+ d.dataClass="confidential";
+ let x=cpuQuote([a],d);
+ assert.ok(x.held[0].reasons.includes("data-residency-region-refused"));
+ assert.ok(x.held[0].reasons.includes("preemption-incompatible"));
+ assert.ok(x.held[0].reasons.includes("confidential-work-not-admitted"));
+ a.supply.region="US";a.supply.preemptible=false;
+ a.supply.dataProtection="confidential-admitted";
+ a.supply.elapsedSeconds=400;
+ x=cpuQuote([a],d);
+ assert.ok(x.held[0].reasons.includes("performance-and-duration-unproved"));
+ a.supply.elapsedSeconds=60;
+ assert.equal(cpuQuote([a],d).conditionalRanked.length,1);
+});
+test("CPU-only principal-held capacity remains full economic cost under zero NEW-cash limit",()=>{
+ const a=cpuReady(), d=cpuWork();
+ d.principalRef="principal:example";d.incrementalCashLimit={
+   denomination:usd,maximum:frac(0)};
+ a.relationship="principal-held-capacity";
+ a.terms.permittedRelationships=["principal-held-capacity"];
+ for(const line of Object.values(a.costs)){
+  line.cashDisposition="previously-funded";
+  line.entitlement={
+   accountRef:"account:synthetic-previously-funded",principalRef:d.principalRef,
+   sourceUrl:url,observedAt:"2026-10-20T17:30:00Z",
+   expiresAt:"2026-10-20T20:00:00Z",
+   remainingQuantity:frac(400)
+  };
+ }
+ const x=cpuQuote([a],d);
+ assert.equal(x.conditionalRanked.length,1);
+ assert.deepEqual(x.lowestConditional.modeledPricePerAcceptedResult,frac(15,4));
+ assert.deepEqual(x.lowestConditional.modeledIncrementalCashPerAcceptedResult,frac(0));
+ assert.equal(x.lowestConditional.entitledCapacityReserved,false);
+ assert.equal(x.buyerOrBrokerAuthorized,false);
+ a.costs["cpu-and-ram"].cashDisposition="new-cash";
+ assert.ok(cpuQuote([a],d).held[0].reasons.includes("incremental-cash-ceiling-exceeded"));
+});
+test("CPU kind cannot be spoofed by leaving GPU requirements or omitting CPU bounds",()=>{
+ const cases=[{...cpuWork(),computeKind:"invented"},{...cpuWork(),minCpuCores:0},
+  {...cpuWork(),minMemoryGiB:undefined},{...cpuWork(),minVramGiB:12}];
+ for(const demand of cases)assert.throws(()=>cpuQuote([cpuReady()],demand),/bounded-original-work-demand/);
+ // Original GPU consumers remain admitted without an explicit discriminator.
+ const original=quote([ready()]);
+ assert.equal(original.computeKind,"gpu");
+ assert.deepEqual(original.lowestConditional.modeledPricePerAcceptedResult,frac(15,2));
+});
+
 test("twelve compute Work costs are original, explicit, and not a broker marketplace",()=>{
  assert.equal(COMPUTE_COST_CATEGORIES.length,12);
  assert.ok(COMPUTE_COST_CATEGORIES.includes("checkpoint-retry"));
