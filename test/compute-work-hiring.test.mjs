@@ -297,6 +297,54 @@ test("all-in work budget excludes a complete quote, not just the provider sticke
  assert.equal(x.held[0].state,"over-budget");
  assert.ok(x.held[0].reasons.includes("whole-work-budget-exceeded"));
 });
+// PRICE-TIME-01: a parser-normalized impossible date is not a source observation.
+// Both the decision cut and dated external offers/entitlements must name real
+// calendar instants; syntactic offset awareness alone does not establish this.
+test("nonexistent source-calendar dates cannot qualify provider or principal-held headroom",()=>{
+ const demand=work();
+ const valid=ready();
+ // Node Date.parse normalizes 2026-02-30 to March 2 unless source fields are checked.
+ assert.throws(()=>quote([valid],demand,"2026-02-30T18:30:00Z"),
+  /offset-aware-as-of-required/u);
+ const invalid=ready();
+ invalid.observedAt="2026-02-30T17:00:00Z";
+ invalid.expiresAt="2026-03-03T20:00:00Z";
+ const received=quote([invalid],demand,"2026-03-03T18:30:00Z");
+ assert.equal(received.conditionalRanked.length,0);
+ assert.ok(received.held[0].reasons.includes("expired-future-or-unbounded-quote"));
+ const badExpiry=ready();
+ badExpiry.observedAt="2026-03-03T17:00:00Z";
+ badExpiry.expiresAt="2026-04-31T20:00:00-05:00";
+ const expires=quote([badExpiry],demand,"2026-03-03T18:30:00Z");
+ assert.equal(expires.conditionalRanked.length,0);
+ assert.ok(expires.held[0].reasons.includes("expired-future-or-unbounded-quote"));
+ const heldWork=cpuWork();
+ heldWork.principalRef="principal:date-test";
+ heldWork.incrementalCashLimit={denomination:usd,maximum:frac(0)};
+ const heldOffer=cpuReady();
+ heldOffer.relationship="principal-held-capacity";
+ heldOffer.terms.permittedRelationships=["principal-held-capacity"];
+ heldOffer.observedAt="2026-03-03T17:00:00Z";
+ heldOffer.expiresAt="2026-03-03T20:00:00Z";
+ for(const cost of Object.values(heldOffer.costs)) {
+  cost.cashDisposition="previously-funded";
+  cost.entitlement={accountRef:"account:test",principalRef:heldWork.principalRef,
+   sourceUrl:url,observedAt:"2026-02-30T17:30:00Z",
+   expiresAt:"2026-03-03T20:00:00Z",remainingQuantity:frac(400)};
+ }
+ const entitled=quote([heldOffer],heldWork,"2026-03-03T18:30:00Z");
+ assert.equal(entitled.conditionalRanked.length,0);
+ assert.ok(entitled.held[0].reasons.includes("prior-entitlement-missing-expired-or-exhausted:cpu-and-ram"));
+});
+test("real leap-day and timezone-offset source observations stay admissible, never independently certified",()=>{
+ const candidateOffer=ready();
+ candidateOffer.observedAt="2024-02-29T17:00:00-05:00";
+ candidateOffer.expiresAt="2024-03-01T20:00:00-05:00";
+ const x=quote([candidateOffer],work(),"2024-03-01T18:30:00-05:00");
+ assert.equal(x.conditionalRanked.length,1);
+ assert.equal(x.liveQuoteOrSupplyVerified,false);
+});
+
 test("invalid, future, expired and timezone-ambiguous quotes cannot count",()=>{
  const a=ready();a.expiresAt="2026-10-20T18:00:00Z";
  assert.ok(held(a).reasons.includes("expired-future-or-unbounded-quote"));
