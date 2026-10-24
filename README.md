@@ -251,6 +251,24 @@ The new `./compute-work-hiring` export and `quote-compute-work` executable both 
 
 The Work demand supplies a named Work/acceptance reference, GPU VRAM floor, maximum elapsed seconds, geographic data residency, preemption policy, privacy classification and **maximum all-in buyer price in a stated denomination**. Each offer needs a source URL, seller/payee identities, seller's commercial terms and allowed relationship, source observation/expiry, capabilities and measured duration, exactly matched historical acceptance task class, exact denominated price lines, margin and settlement increment. Different native AKT/NOS/USD units are refused for ranking without a separately independently source-qualified conversion; no exchange rate is inferred here.
 
+**PRICE-TIME-01: source-date and time admission.** The original comparison
+cut (`asOf`), the candidate offer's `observedAt`/`expiresAt` and the
+principal-held entitlement's dated headroom MUST represent real calendar
+instants with explicit UTC/offset information. Merely matching an ISO-like
+string and calling JavaScript `Date.parse` is not enough: e.g. a fictional
+2026-02-30 could silently become March 2, making a nonexistent or wrongly
+bounded supplier/entitlement observation look usable. The price owner now
+round-trips the exact source-local calendar fields through the stated offset;
+impossible dates refuse, while real leap days and nonzero offsets survive.
+The original native Node 22/24 regression was first observed RED on an
+invalid decision cut and later GREEN after the source repair; this establishes
+only that specific date-admission property, **not** external timestamp
+attestation, qualified standard conformance, live capacity, contract formation,
+independently accepted Work or collected revenue. Source owner:
+[principal-held compute requirement #5](https://github.com/red-cup-engineering/capability-pricing-service/issues/5),
+original tests: [compute-work-hiring.test.mjs](test/compute-work-hiring.test.mjs).
+
+
 The five **commercial modes** stay distinct:
 - `direct-provider`: original seller sells directly to an admitted buyer, with no compulsory Bazaar fee.
 - `noncustodial-referral`: optional finder or selection work; any nonzero brokerage fee requires a separately identified original agreement.
