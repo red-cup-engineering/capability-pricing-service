@@ -18,9 +18,30 @@ export const COMPUTE_RELATIONSHIPS = Object.freeze([
   "principal-held-capacity"
 ]);
 const DIGITS = /^(?:0|[1-9][0-9]{0,39})$/u;
-const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u;
+// Strict source calendar instants are required for dated capacity, price, and
+// entitlement claims. Date.parse alone normalizes impossible dates such as
+// 2026-02-30 into March without indicating that the original source was invalid.
+// Retain the source's local fields and the explicit offset for round-trip proof.
+const CLOCK = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:\d{2})$/u;
 const named = x => typeof x === "string" && x.length > 0 && x.trim() === x;
-const validTime = x => typeof x === "string" && CLOCK.test(x) && Number.isFinite(Date.parse(x));
+const validTime = x => {
+  const fields = typeof x === "string" ? CLOCK.exec(x) : null;
+  if (!fields) return false;
+  const timestamp = Date.parse(x);
+  if (!Number.isFinite(timestamp)) return false;
+  const zone = fields[8];
+  const offsetMinutes = zone === "Z" ? 0 :
+    (zone[0] === "-" ? -1 : 1) *
+    (Number(zone.slice(1, 3)) * 60 + Number(zone.slice(4, 6)));
+  const local = new Date(timestamp + offsetMinutes * 60_000);
+  return local.getUTCFullYear() === Number(fields[1]) &&
+    local.getUTCMonth() + 1 === Number(fields[2]) &&
+    local.getUTCDate() === Number(fields[3]) &&
+    local.getUTCHours() === Number(fields[4]) &&
+    local.getUTCMinutes() === Number(fields[5]) &&
+    local.getUTCSeconds() === Number(fields[6]) &&
+    local.getUTCMilliseconds() === Number((fields[7] ?? "").padEnd(3, "0"));
+};
 const https = x => {
   try {
     const u = new URL(x);
