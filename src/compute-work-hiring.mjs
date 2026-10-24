@@ -1,6 +1,8 @@
 /**
- * Research-side compute procurement economics: rank cost per *accepted Work*
- * using the original quoteReservationPrice. No provider API, keys, or funds.
+ * Research-side CPU/GPU Work procurement economics: rank whole cost per
+ * accepted original Work with the existing exact quoteReservationPrice.
+ * Quoted resources and historical success counts are provider ASSERTIONS,
+ * never leases, funds, installed capacity or independently accepted results.
  */
 import { quoteReservationPrice } from "./pricing.mjs";
 
@@ -9,6 +11,7 @@ export const COMPUTE_COST_CATEGORIES = Object.freeze([
   "checkpoint-retry", "verification", "payment", "brokerage",
   "support", "capital-carry", "refund-reserve"
 ]);
+export const COMPUTE_WORK_CLASSES = Object.freeze(["cpu", "gpu"]);
 export const COMPUTE_RELATIONSHIPS = Object.freeze([
   "direct-provider", "noncustodial-referral", "managed-result",
   "native-network-gateway", "raw-capacity-resale",
@@ -65,9 +68,18 @@ const refusal = (offer, reasons) => Object.freeze({
 export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
   if (!validTime(asOf)) throw new TypeError("offset-aware-as-of-required");
   const now = Date.parse(asOf);
+  // Existing original callers are GPU-specific; leaving kind absent preserves
+  // their exact contracts. CPU is explicitly selected by a Work owner and
+  // still requires source-qualified capacity, duration, rights and economics.
+  const computeKind = demand?.computeKind ?? "gpu";
+  const kindBounded = COMPUTE_WORK_CLASSES.includes(computeKind);
+  const hardwareBounded = computeKind === "cpu"
+    ? Number.isSafeInteger(demand?.minCpuCores) && demand.minCpuCores >= 1 &&
+      Number.isSafeInteger(demand?.minMemoryGiB) && demand.minMemoryGiB >= 1 &&
+      (demand.minVramGiB === undefined || demand.minVramGiB === 0)
+    : Number.isSafeInteger(demand?.minVramGiB) && demand.minVramGiB >= 1;
   if (!named(demand?.workRef) || !named(demand?.taskClass) ||
-      !named(demand?.acceptanceRef) ||
-      !Number.isSafeInteger(demand?.minVramGiB) || demand.minVramGiB < 1 ||
+      !named(demand?.acceptanceRef) || !kindBounded || !hardwareBounded ||
       !Number.isSafeInteger(demand?.maxElapsedSeconds) || demand.maxElapsedSeconds < 1 ||
       !Array.isArray(demand?.allowedRegions) || demand.allowedRegions.length === 0 ||
       demand.allowedRegions.some(x => !named(x)) ||
@@ -122,9 +134,16 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
       errors.push("expired-future-or-unbounded-quote");
 
     const supply = offer?.supply;
-    if (!Number.isSafeInteger(supply?.vramGiB) || supply.vramGiB < demand.minVramGiB ||
-        !Number.isSafeInteger(supply?.gpuCount) || supply.gpuCount < 1)
-      errors.push("gpu-capacity-unproven");
+    if (computeKind === "gpu") {
+      if (!Number.isSafeInteger(supply?.vramGiB) || supply.vramGiB < demand.minVramGiB ||
+          !Number.isSafeInteger(supply?.gpuCount) || supply.gpuCount < 1)
+        errors.push("gpu-capacity-unproven");
+    } else if (!Number.isSafeInteger(supply?.cpuCores) || supply.cpuCores < demand.minCpuCores ||
+        !Number.isSafeInteger(supply?.memoryGiB) || supply.memoryGiB < demand.minMemoryGiB ||
+        (supply?.gpuCount !== undefined &&
+         (!Number.isSafeInteger(supply.gpuCount) || supply.gpuCount < 0))) {
+      errors.push("cpu-memory-capacity-unproven");
+    }
     if (!demand.allowedRegions.includes(supply?.region))
       errors.push("data-residency-region-refused");
     if (!demand.mayPreempt && supply?.preemptible !== false)
@@ -194,13 +213,36 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
             errors.push("cost-cash-disposition-required:" + kind);
           }
         }
-        if (kind === "gpu-seconds" &&
+        if (computeKind === "gpu" && kind === "gpu-seconds" &&
             (qty === 0n || rate === 0n ||
              Number.isSafeInteger(supply?.elapsedSeconds) &&
              Number.isSafeInteger(supply?.gpuCount) &&
              qty < BigInt(supply.elapsedSeconds) * BigInt(supply.gpuCount) *
                   BigInt(line.quantity.denominator)))
           errors.push("unpriced-or-underbilled-gpu-work");
+        // A CPU-only buyer must not be charged a disguised GPU commodity.
+        if (computeKind === "cpu" && kind === "gpu-seconds" &&
+            (qty !== 0n || rate !== 0n))
+          errors.push("cpu-only-work-has-gpu-charge");
+        if (computeKind === "cpu" && kind === "cpu-and-ram") {
+          // An unsigned bundle price is NOT enough to know its resource scope.
+          // The original supplier must claim separately both resource-time
+          // quantities while the original price lot retains ONE monetary rate.
+          // Checking the whole provisioned capacity × duration prevents a
+          // cheap CPU unit price from hiding unpriced RAM or extra cores.
+          const basis = line.reservationBasis;
+          const cpu = basis?.cpuCoreSeconds, memory = basis?.ramGiBSeconds;
+          const elapsed = Number.isSafeInteger(supply?.elapsedSeconds) &&
+            supply.elapsedSeconds > 0 ? BigInt(supply.elapsedSeconds) : null;
+          if (!decimal(cpu, true) || !decimal(memory, true) ||
+              elapsed === null || !Number.isSafeInteger(supply?.cpuCores) ||
+              supply.cpuCores <= 0 || !Number.isSafeInteger(supply?.memoryGiB) ||
+              supply.memoryGiB <= 0 ||
+              BigInt(cpu || "0") < elapsed * BigInt(supply.cpuCores || 0) ||
+              BigInt(memory || "0") < elapsed * BigInt(supply.memoryGiB || 0) ||
+              qty === 0n || rate === 0n)
+            errors.push("unpriced-or-underbilled-cpu-ram-work");
+        }
         if (qty === 0n || rate === 0n) { explicitZero.push(kind); continue; }
         resourceLots.push({
           resource: kind,
@@ -234,6 +276,15 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
     rows.push(Object.freeze({
       providerId: offer.providerId, offerRef: offer.offerRef, originalActor: offer.originalActor,
       originalPayee: offer.originalPayee, relationship: offer.relationship,
+      computeKind,
+      resourceRequirements: Object.freeze(computeKind === "cpu"
+        ? { minCpuCores: demand.minCpuCores, minMemoryGiB: demand.minMemoryGiB }
+        : { minVramGiB: demand.minVramGiB }),
+      ...(computeKind === "cpu" ? { assertedReservedResourceTime: Object.freeze({
+        cpuCoreSeconds: costs["cpu-and-ram"].reservationBasis.cpuCoreSeconds,
+        ramGiBSeconds: costs["cpu-and-ram"].reservationBasis.ramGiBSeconds,
+        independentlyMeasured: false
+      }) } : {}),
       state: overBudget ? "over-budget" : "conditional-comparable",
       reasons: Object.freeze(overBudget ? ["whole-work-budget-exceeded"] : []),
       denomination: conditional.denomination,
@@ -256,6 +307,7 @@ export function compareComputeWorkOffers({ demand, offers, asOf } = {}) {
   });
   return Object.freeze({
     type: "ComputeWorkPriceComparison", version: 1, workRef: demand.workRef, asOf,
+    computeKind,
     conditionalRanked: Object.freeze(comparable),
     held: Object.freeze(rows.filter(x => x.state !== "conditional-comparable")),
     lowestConditional: comparable[0] ?? null,
