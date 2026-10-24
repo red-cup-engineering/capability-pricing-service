@@ -199,6 +199,50 @@ The new `./fixed-term-reward-ceiling` export produces a worst-case bound for an 
 [Source tests](test/prefunded-lightning-inventory.test.mjs) for legacy and msat inventory + [contract-ceiling tests](test/fixed-term-reward-ceiling.test.mjs) cover 21 independent assertions under in-isolate source execution. However, **the transaction writer is still absent**: two simultaneous quotes against the same uncommitted book may both fit. Before any public real-sat contract or recurring purchase, install one transactionally guarded, revision-checked, source-owned wallet+ledger booking and payout/reversal actor in the original Finance/Treasury producer. Follow [Financial Engineering #36](https://github.com/red-cup-engineering/financial-engineering-services-section/issues/36). A quote never conveys spending or custody authority.
 
 
+## CPU-only batch Work: source-qualified provider hiring without a GPU (2026-10-23)
+
+The original `compareComputeWorkOffers` accepted only an implicit GPU
+task (VRAM floor, `gpuCount >= 1`, priced GPU-seconds). That *rejected*
+ordinary CPU Work even when an authorized provider had cores, memory and
+an acceptable deadline. Following [Slurm's separate CPU/memory trackable
+resources](https://slurm.schedmd.com/cons_tres.html), [Akash's provider CPU/RAM
+resource contract](https://akash.network/docs/learn/core-concepts/providers-leases/)
+and the Group's [existing Bazaar supplier Work](https://github.com/coesite-operations/capability-market-services-section/issues/5),
+the same price-comparison operation now accepts a **deliberate**
+`demand.computeKind: "cpu"`. Existing omitted-kind/GPU callers are unchanged.
+
+A CPU Work requires `minCpuCores` and `minMemoryGiB` as positive bounded
+integers, exact original Work and acceptance references, region, privacy,
+preemption, time and all-in denominated budget. Each candidate must claim
+`supply.cpuCores`, `supply.memoryGiB`, `supply.elapsedSeconds`,
+`supply.measurementSourceUrl` and identical original task-class delivery
+history. `gpuCount` may be absent or zero; a GPU never satisfies missing
+CPU capacity. Only for CPU Work the existing `cpu-and-ram` money cost line
+MUST include a separately named, source-claimed `reservationBasis`:
+`{cpuCoreSeconds:"120",ramGiBSeconds:"240"}` for example, against the
+**whole offered provisioned capacity × advertised seconds**. Its existing
+`quantity × rate` remains the *one total CPU+RAM monetary bundle price*
+in the original selected denomination, **not** a conversion of those two
+different units into money. Neither unit may be missing or underbounded;
+the bundle cannot have a zero monetary rate. The already-explicit
+`gpu-seconds` cost must be zero in quantity **and** rate. All 12 original
+cost categories remain explicitly quoted and source-labeled, and the
+original same-task accepted/attempted history prices retries and recovery.
+
+This is a price assay, **not** a CPU executor, W3C/SchedMD conformance
+certificate, Golem agreement, Akash lease, BOINC reward ledger, hardware
+measurement, bounded OS isolation, a new market listing or settled customer
+income. No independent provider qualification can be inferred from source
+terms. The result exposes `computeKind`, priced resource requirements,
+source-asserted core-seconds and GiB-seconds, a single whole accepted-work
+price and separately modeled incremental *new cash* when the original
+principal-held allowance is declared. The buyer/actor and actual host
+must separately verify lease/rights, money, claimed usage, result quality,
+work acceptance, privacy and reverse/refund effects. The original
+Coesite **data** stays in Coesite; the provider matching **code** has
+moved to [Red Cup Capability Market Service](https://github.com/red-cup-engineering/capability-market-service).
+Conformance testing here is not a new Coesite executable.
+
 ## GPU and agent Work: compute brokerage by accepted result (2026-10-20)
 
 **Demand:** the 561 Group Leader wants agents to buy, hire, broker and, where expressly permitted, resell compute/GPUs economically. The original receiving system is [Coesite Capability Bazaar #5](https://github.com/coesite-operations/capability-market-services-section/issues/5) and its [merged provider admission PR #11](https://github.com/coesite-operations/capability-market-services-section/pull/11); the original seller/readout faces remain [Causeway Market #19](https://github.com/causeway-services/market.561.group/issues/19) and Shop. This package **owns pricing math**, not a new market, GPU scanner, data codec, payment router or wallet.
@@ -206,6 +250,24 @@ The new `./fixed-term-reward-ceiling` export produces a worst-case bound for an 
 The new `./compute-work-hiring` export and `quote-compute-work` executable both invoke the **existing** `quoteReservationPrice` exact rational arithmetic from this package. They compare source-described offers on modeled consideration **per accepted Work result** under a bounded agent Work demand. They require all **twelve** explicit cost categories, including original GPU-seconds, CPU/memory, storage, egress, startup, retries, independent verification, payment, separate brokerage, customer support, capital carry and refund reserve. Zero costs must be explicitly sourced; absent costs remain unknown. A provider with cheaper GPU time but high failure/retry risk can lose to a dearer, more reliable source. Unit rates, task-class delivery counts and delivery durations are **source assertions until independently witnessed**, not marketplace-verified facts.
 
 The Work demand supplies a named Work/acceptance reference, GPU VRAM floor, maximum elapsed seconds, geographic data residency, preemption policy, privacy classification and **maximum all-in buyer price in a stated denomination**. Each offer needs a source URL, seller/payee identities, seller's commercial terms and allowed relationship, source observation/expiry, capabilities and measured duration, exactly matched historical acceptance task class, exact denominated price lines, margin and settlement increment. Different native AKT/NOS/USD units are refused for ranking without a separately independently source-qualified conversion; no exchange rate is inferred here.
+
+**PRICE-TIME-01: source-date and time admission.** The original comparison
+cut (`asOf`), the candidate offer's `observedAt`/`expiresAt` and the
+principal-held entitlement's dated headroom MUST represent real calendar
+instants with explicit UTC/offset information. Merely matching an ISO-like
+string and calling JavaScript `Date.parse` is not enough: e.g. a fictional
+2026-02-30 could silently become March 2, making a nonexistent or wrongly
+bounded supplier/entitlement observation look usable. The price owner now
+round-trips the exact source-local calendar fields through the stated offset;
+impossible dates refuse, while real leap days and nonzero offsets survive.
+The original native Node 22/24 regression was first observed RED on an
+invalid decision cut and later GREEN after the source repair; this establishes
+only that specific date-admission property, **not** external timestamp
+attestation, qualified standard conformance, live capacity, contract formation,
+independently accepted Work or collected revenue. Source owner:
+[principal-held compute requirement #5](https://github.com/red-cup-engineering/capability-pricing-service/issues/5),
+original tests: [compute-work-hiring.test.mjs](test/compute-work-hiring.test.mjs).
+
 
 The five **commercial modes** stay distinct:
 - `direct-provider`: original seller sells directly to an admitted buyer, with no compulsory Bazaar fee.
